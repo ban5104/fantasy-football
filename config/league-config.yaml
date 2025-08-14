@@ -1,0 +1,157 @@
+version: "2025-08-14"
+league_name: "Fantasy 24-25"
+
+basic_settings:
+  teams: 14
+  scoring_type: "Head to Head Points"
+  format: "League Manager"
+  public_viewable: true
+  auto_reactivate: false
+
+draft:
+  type: "Snake"
+  time_per_pick: 30  # seconds
+  order: "Randomized One Hour Prior to Draft Time"
+
+roster:
+  teams: 14
+  total_size: 16
+  total_starters: 9
+  bench: 7
+  roster_slots:
+    QB: 1      # max 4
+    RB: 2      # max 8
+    WR: 2      # max 8
+    TE: 1      # max 3
+    FLEX: 1    # RB/WR/TE flex
+    DEF: 1     # max 3 (D/ST)
+    K: 1       # max 3
+  maximums:
+    QB: 4
+    RB: 8
+    WR: 8
+    TE: 3
+    DEF: 3
+    K: 3
+
+scoring:
+  passing:
+    yards: 0.04       # per yard
+    touchdown: 4
+    interception: -2
+    two_point_conversion: 2
+  rushing:
+    yards: 0.1        # per yard
+    touchdown: 6
+    two_point_conversion: 2
+  receiving:
+    yards: 0.1        # per yard
+    touchdown: 6
+    two_point_conversion: 2
+  kicking:
+    pat: 1
+    fg_missed: -1
+    fg_0_39: 3
+    fg_40_49: 4
+    fg_50_59: 5
+    fg_60_plus: 6
+  defense:
+    sack: 1
+    interception: 2
+    fumble_recovery: 2
+    safety: 2
+    blocked_kick: 2
+    points_allowed:
+      "0": 5
+      "1-6": 4
+      "7-13": 3
+      "14-17": 1
+      "28-34": -1
+      "35-45": -3
+      "46+": -5
+    yards_allowed:
+      "under_100": 5
+      "100-199": 3
+      "200-299": 2
+      "350-399": -1
+      "400-449": -3
+      "450-499": -5
+      "500-549": -6
+      "550+": -7
+    return_touchdowns: 6  # kickoff, punt, interception, fumble return TDs
+    return_yards: 1       # per 25 yards
+    two_point_return: 2
+    one_point_safety: 1
+  miscellaneous:
+    fumble_lost: -2
+
+team_names:
+  - "Bam Bam Kam"
+  - "Team McClea"
+  - "Rip Andy Luck"
+  - "Beavers boys"
+  - "NC Baby"
+  - "I hate demar"
+  - "Team Favre"
+  - "DeShaun's Massage Parlor"
+  - "The Battlers"
+  - "TeamWhodat Ziolo"
+  - "Title Town"
+  - "The Faithful Faithful"
+  - "Team 13"
+  - "Monday Scaries"
+
+player_rules:
+  undroppable_list: true
+  universe: "NFL"
+
+acquisition_rules:
+  lineup_changes: "Lock individually at Scheduled Gametime"
+  acquisition_system: "Waivers"
+  season_limit: null  # No Limit
+  waiver_period: 1    # days
+  waiver_order: "Reset Each Week to Inverse Order of Standings"
+
+trade_rules:
+  limit: null         # No Limit
+  deadline: "2025-11-28T21:00:00+13:00"  # Nov 28, 2025 @ 9:00 PM GMT+13
+  review_period: 2    # days
+  veto_votes_required: 4
+
+keepers:
+  enabled_2025: false
+  enabled_2026: false
+
+season:
+  start: "NFL Week 1"
+  weeks_per_matchup: 1
+  regular_season_matchups: 18
+  tie_breaker: "No tie breakers"
+  home_field_advantage: "None"
+  bonus_wins_losses: false
+
+playoffs:
+  enabled: false
+
+replacement_level:
+  QB: 14
+  RB: 28
+  WR: 28  
+  TE: 14
+  FLEX: 42
+  DEF: 14
+  K: 14
+
+defaults:
+  seed: 42
+  alpha: 0.05
+  adp_infer_method: "rank_to_adp"
+  top_n_cheatsheet: 30
+
+export:
+  cheat_sheet_format: "csv"
+  cheat_sheet_top_per_pos:
+    QB: 8
+    RB: 16
+    WR: 16
+    TE: 8
