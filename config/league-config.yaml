@@ -79,7 +79,7 @@ scoring:
       "500-549": -6
       "550+": -7
     return_touchdowns: 6  # kickoff, punt, interception, fumble return TDs
-    return_yards: 1       # per 25 yards
+    return_yards: 0.04    # per yard (1 point per 25 yards = 0.04 per yard)
     two_point_return: 2
     one_point_safety: 1
   miscellaneous:

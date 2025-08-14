@@ -78,6 +78,13 @@ def scrape_position(position):
         # Standardize column names
         df.columns = [col.upper().replace(' ', '_') for col in df.columns]
         
+        # Fix specific column naming issues
+        if any('PLAYER' in col for col in df.columns):
+            # Find the player column and rename it to just 'PLAYER'
+            player_cols = [col for col in df.columns if 'PLAYER' in col]
+            if player_cols:
+                df = df.rename(columns={player_cols[0]: 'PLAYER'})
+        
         # Add position column
         df['POSITION'] = position.upper()
         
