@@ -1,0 +1,33 @@
+[project]
+name = "fantasy-football-draft-spreadsheet-visuals"
+version = "0.1.0"
+description = "Fantasy football draft analysis and visualization system"
+requires-python = ">=3.8"
+dependencies = [
+    "pandas>=2.0.0",
+    "numpy>=1.20.0", 
+    "pyyaml>=6.0",
+    "matplotlib>=3.0.0",
+    "seaborn>=0.11.0",
+    "plotly>=5.0.0",
+    "jupyter>=1.0.0",
+    "ipykernel>=6.0.0",
+    "beautifulsoup4>=4.12.0",
+    "requests>=2.31.0",
+    "lxml>=4.9.0",
+    "scikit-learn>=1.0.0",
+    "scipy>=1.7.0",
+    "ipywidgets>=7.6.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=7.0.0",
+]
