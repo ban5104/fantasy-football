@@ -1,0 +1,59 @@
+{
+  "version": "1.0",
+  "name": "fantasy-football-draft-system-pr",
+  "description": "Fantasy football draft analysis system with Jupyter interface and backup terminal tracker",
+  "generated_by": "spec-generator",
+  "generated_at": "2025-08-15T18:30:57Z",
+  "acceptance": [
+    {
+      "id": "python-environment-setup",
+      "type": "custom",
+      "command": "uv sync && python -c 'import pandas, numpy, plotly, jupyter; print(\"Dependencies OK\")'",
+      "description": "Verify Python environment and dependencies install correctly",
+      "expect": {
+        "exitCode": 0
+      }
+    },
+    {
+      "id": "test-suite-execution",
+      "type": "unit",
+      "command": "python run_tests.py",
+      "description": "Run complete test suite for backup draft functionality",
+      "expect": {
+        "exitCode": 0
+      }
+    },
+    {
+      "id": "backup-draft-functionality",
+      "type": "custom",
+      "command": "python -c 'import backup_draft; bd = backup_draft.BackupDraftTracker(); print(\"Backup draft tracker initialized successfully\")'",
+      "description": "Verify backup draft tracker can be imported and initialized",
+      "expect": {
+        "exitCode": 0
+      }
+    },
+    {
+      "id": "draft-engine-core",
+      "type": "custom", 
+      "command": "python -c 'from src.draft_engine import DraftEngine; from src.data_processor import DataProcessor; print(\"Core modules import successfully\")'",
+      "description": "Verify core draft engine and data processor modules load correctly",
+      "expect": {
+        "exitCode": 0
+      }
+    },
+    {
+      "id": "config-validation",
+      "type": "static",
+      "command": "python -c 'import yaml; yaml.safe_load(open(\"config/league-config.yaml\")); print(\"Config file valid\")'",
+      "description": "Validate league configuration YAML file syntax",
+      "expect": {
+        "exitCode": 0
+      }
+    }
+  ],
+  "policy": {
+    "risk_level": "low",
+    "auto_merge_if_low_risk": false,
+    "migration_requires_manual_approval": false
+  }
+}
