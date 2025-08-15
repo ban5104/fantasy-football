@@ -102,7 +102,7 @@ def compare_rankings(df, methods=['VBD_VOLS', 'VBD_VORP', 'VBD_BEER', 'VBD_BLEND
     comparison_data = []
     
     for method in methods:
-        top_players = df.nlargest(top_n, method)[['PLAYER', 'Position', method]].reset_index(drop=True)
+        top_players = df.nlargest(top_n, method)[['PLAYER', 'POSITION', method]].reset_index(drop=True)
         top_players['Rank'] = range(1, len(top_players) + 1)
         top_players['Method'] = method
         comparison_data.append(top_players)
@@ -123,7 +123,7 @@ def validate_data_quality(df):
         'total_players': len(df),
         'missing_fantasy_pts': df['FANTASY_PTS'].isna().sum() if 'FANTASY_PTS' in df.columns else 0,
         'zero_fantasy_pts': (df['FANTASY_PTS'] == 0).sum() if 'FANTASY_PTS' in df.columns else 0,
-        'position_counts': df['Position'].value_counts().to_dict() if 'Position' in df.columns else {},
+        'position_counts': df['POSITION'].value_counts().to_dict() if 'POSITION' in df.columns else {},
         'duplicate_players': df.duplicated(subset=['PLAYER']).sum() if 'PLAYER' in df.columns else 0
     }
     

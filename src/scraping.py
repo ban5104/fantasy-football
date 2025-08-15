@@ -36,11 +36,16 @@ def scrape_position_projections(position, delay=2):
             
         df = tables[0]
         
+        # Flatten multi-level column names if they exist
+        if hasattr(df.columns, 'levels'):
+            # Multi-level columns - flatten them
+            df.columns = ['_'.join(col).strip('_') if isinstance(col, tuple) else str(col) for col in df.columns.values]
+        
         # Clean up column names
-        df.columns = [str(col).replace('Unnamed: 0_level_0_', '').strip() for col in df.columns]
+        df.columns = [str(col).replace('Unnamed: 0_level_0_', '').replace('Player', 'PLAYER').upper() for col in df.columns]
         
         # Add position column
-        df['Position'] = position.upper()
+        df['POSITION'] = position.upper()
         
         logging.info(f"Successfully scraped {len(df)} {position.upper()} players")
         time.sleep(delay)
@@ -88,8 +93,8 @@ def save_projection_data(df, base_path="data/raw"):
     timestamp = datetime.now().strftime("%Y%m%d")
     
     # Save individual position files
-    for position in df['Position'].unique():
-        pos_df = df[df['Position'] == position]
+    for position in df['POSITION'].unique():
+        pos_df = df[df['POSITION'] == position]
         filename = f"{base_path}/projections_{position.lower()}_{timestamp}.csv"
         pos_df.to_csv(filename, index=False)
         logging.info(f"Saved {len(pos_df)} {position} players to {filename}")

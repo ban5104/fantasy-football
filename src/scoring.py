@@ -28,9 +28,9 @@ def prepare_stats_columns(df):
     """
     # Define stat columns that should be numeric
     stat_columns = [
-        'PASSING_ATT', 'PASSING_CMP', 'PASSING_YDS', 'PASSING_TD', 'PASSING_INT',
-        'RUSHING_ATT', 'RUSHING_YDS', 'RUSHING_TD', 'RECEIVING_REC', 'RECEIVING_YDS', 
-        'RECEIVING_TD', 'FUMBLES', 'KICKING_FG', 'KICKING_PAT', 'DST_SACK', 
+        'PASSING_ATT', 'PASSING_CMP', 'PASSING_YDS', 'PASSING_TDS', 'PASSING_INTS',
+        'RUSHING_ATT', 'RUSHING_YDS', 'RUSHING_TDS', 'RECEIVING_REC', 'RECEIVING_YDS', 
+        'RECEIVING_TDS', 'MISC_FL', 'MISC_FPTS', 'KICKING_FG', 'KICKING_PAT', 'DST_SACK', 
         'DST_INT', 'DST_FR', 'DST_TD', 'DST_SAFETY', 'DST_PA', 'DST_YA'
     ]
     
@@ -59,31 +59,31 @@ def calculate_fantasy_points_vectorized(df, scoring_config):
     passing = scoring_config.get('passing', {})
     if 'PASSING_YDS' in df.columns:
         df['FANTASY_PTS'] += df['PASSING_YDS'] * passing.get('yards', 0)
-    if 'PASSING_TD' in df.columns:
-        df['FANTASY_PTS'] += df['PASSING_TD'] * passing.get('td', 0)
-    if 'PASSING_INT' in df.columns:
-        df['FANTASY_PTS'] += df['PASSING_INT'] * passing.get('int', 0)
+    if 'PASSING_TDS' in df.columns:
+        df['FANTASY_PTS'] += df['PASSING_TDS'] * passing.get('touchdown', 0)
+    if 'PASSING_INTS' in df.columns:
+        df['FANTASY_PTS'] += df['PASSING_INTS'] * passing.get('interception', 0)
     
     # Rushing scoring
     rushing = scoring_config.get('rushing', {})
     if 'RUSHING_YDS' in df.columns:
         df['FANTASY_PTS'] += df['RUSHING_YDS'] * rushing.get('yards', 0)
-    if 'RUSHING_TD' in df.columns:
-        df['FANTASY_PTS'] += df['RUSHING_TD'] * rushing.get('td', 0)
+    if 'RUSHING_TDS' in df.columns:
+        df['FANTASY_PTS'] += df['RUSHING_TDS'] * rushing.get('touchdown', 0)
     
     # Receiving scoring
     receiving = scoring_config.get('receiving', {})
     if 'RECEIVING_REC' in df.columns:
-        df['FANTASY_PTS'] += df['RECEIVING_REC'] * receiving.get('rec', 0)
+        df['FANTASY_PTS'] += df['RECEIVING_REC'] * receiving.get('reception', 0)
     if 'RECEIVING_YDS' in df.columns:
         df['FANTASY_PTS'] += df['RECEIVING_YDS'] * receiving.get('yards', 0)
-    if 'RECEIVING_TD' in df.columns:
-        df['FANTASY_PTS'] += df['RECEIVING_TD'] * receiving.get('td', 0)
+    if 'RECEIVING_TDS' in df.columns:
+        df['FANTASY_PTS'] += df['RECEIVING_TDS'] * receiving.get('touchdown', 0)
     
     # Fumbles
-    if 'FUMBLES' in df.columns:
-        fumble_pts = scoring_config.get('fumbles', {}).get('lost', 0)
-        df['FANTASY_PTS'] += df['FUMBLES'] * fumble_pts
+    if 'MISC_FL' in df.columns:
+        fumble_pts = scoring_config.get('miscellaneous', {}).get('fumble_lost', 0)
+        df['FANTASY_PTS'] += df['MISC_FL'] * fumble_pts
     
     # Kicking scoring
     kicking = scoring_config.get('kicking', {})
@@ -121,7 +121,11 @@ def rank_players_by_position(df):
         pd.DataFrame: Dataframe with POSITION_RANK column added
     """
     df = df.copy()
-    df['POSITION_RANK'] = df.groupby('Position')['FANTASY_PTS'].rank(
+    
+    # Fill any NaN values in FANTASY_PTS with 0
+    df['FANTASY_PTS'] = df['FANTASY_PTS'].fillna(0)
+    
+    df['POSITION_RANK'] = df.groupby('POSITION')['FANTASY_PTS'].rank(
         method='dense', ascending=False
     ).astype(int)
     

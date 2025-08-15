@@ -128,11 +128,22 @@ python scripts/daily_update.py
 0 6 * * * cd /path/to/project && python scripts/daily_update.py
 ```
 
-### Output Files
-- `vbd_rankings_top300_YYYYMMDD.csv` - Main draft rankings
-- `rankings_vbd_vols_top300_YYYYMMDD.csv` - Conservative rankings  
-- `rankings_vbd_vorp_top300_YYYYMMDD.csv` - Balanced rankings
-- `rankings_vbd_beer_top300_YYYYMMDD.csv` - Aggressive rankings
+### Output Files (data/output/)
+
+**🎯 Primary Custom VBD Rankings:**
+- **`vbd_rankings_top300_YYYYMMDD.csv`** - **Main blended rankings** (50% BEER + 25% VORP + 25% VOLS)
+
+**📊 Individual VBD Methods:**
+- **`rankings_vbd_beer_top300_YYYYMMDD.csv`** - BEER method (aggressive drafting strategy)
+- **`rankings_vbd_vorp_top300_YYYYMMDD.csv`** - VORP method (balanced approach)  
+- **`rankings_vbd_vols_top300_YYYYMMDD.csv`** - VOLS method (conservative strategy)
+
+**📈 Reference Rankings:**
+- `rankings_YYYYMMDD.csv` - Basic fantasy points rankings (no VBD)
+- `rankings_top300_YYYYMMDD.csv` - Top 300 by fantasy points only
+- `draft_cheat_sheet.csv` - Draft preparation summary
+
+> **💡 Tip**: Start with `vbd_rankings_top300_YYYYMMDD.csv` for your main draft board. Use individual method files to adjust strategy based on draft position and league tendencies.
 
 ## 🛠️ Development
 
