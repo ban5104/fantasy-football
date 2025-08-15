@@ -24,6 +24,7 @@ This project analyzes fantasy football draft data and projections to help with d
 - **File**: `data/espn_projections_20250814.csv`
 - **Source**: ESPN Fantasy Football Draft Kit (Non-PPR Top 300)
 - **Updated**: August 14, 2025
+- **Weight**: 80% in probability calculations
 - **Columns**:
   - `overall_rank`: Overall draft ranking (1-300)
   - `position`: Player position (QB, RB, WR, TE, K, DST)
@@ -32,6 +33,13 @@ This project analyzes fantasy football draft data and projections to help with d
   - `team`: NFL team abbreviation
   - `salary_value`: Auction draft salary value ($)
   - `bye_week`: Team's bye week (5-14)
+
+### External ADP Data
+- **File**: `data/fantasypros_adp_20250815.csv`
+- **Source**: FantasyPros aggregated ADP rankings
+- **Updated**: August 15, 2025
+- **Weight**: 20% in probability calculations
+- **Purpose**: Provides season-long draft position context to balance real-time ESPN rankings
 
 ## Scripts
 
@@ -50,9 +58,30 @@ python scripts/extract_espn_projections.py [--pdf PDF_PATH] [--output OUTPUT_PAT
 - Sorts by overall ranking
 - Exports to clean CSV format
 
-## Analysis Capabilities
+## Core Probability System
 
-The structured CSV data enables various fantasy football analyses:
+### Dynamic Draft Probability Engine (80% ESPN + 20% ADP)
+This project implements a sophisticated probability system for calculating real-time player availability during fantasy drafts:
+
+**Key Features:**
+- **Weighted Rankings**: 80% ESPN projections + 20% external ADP data
+- **Discrete Survival Calculation**: Step-by-step simulation of picks until your next turn
+- **Dynamic Updates**: Recalculates probabilities as players are drafted
+- **VBD Integration**: Combines with Value Based Drafting scores for decision guidance
+
+**Core Functions:**
+- `compute_pick_probabilities()` - Blends ESPN/ADP rankings using softmax
+- `probability_gone_before_next_pick()` - Calculates survival odds for specific players
+- `calculate_player_metrics_new_system()` - Full enhanced metrics with new probability system
+
+**Decision Logic:**
+- **>80% available**: SAFE - Can wait until next pick
+- **30-80% available**: DRAFT NOW - Risky to wait
+- **<30% available**: REACH - Must draft now to secure
+
+### Traditional Analysis Capabilities
+
+The structured CSV data also enables standard fantasy football analyses:
 
 1. **Draft Strategy**
    - Positional scarcity analysis
@@ -87,10 +116,15 @@ See `requirements.txt` for Python dependencies. Key packages:
    python scripts/extract_espn_projections.py
    ```
 
-3. Open Jupyter notebooks for analysis:
+3. Open main probability analysis notebook:
    ```bash
-   jupyter notebook
+   jupyter notebook espn_probability_matrix.ipynb
    ```
+
+## Key Notebooks
+
+- **`espn_probability_matrix.ipynb`** - Main probability system with 80/20 weighted calculations
+- **Analysis notebooks** - Various exploratory data analysis notebooks in `/notebooks/`
 
 ## League Configuration
 
