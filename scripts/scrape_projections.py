@@ -2,6 +2,8 @@
 """
 FantasyPros Season Projections Scraper
 Simple, reliable scraper for NFL fantasy football projections
+
+Run with: uv run python scrape_projections.py
 """
 
 import time
