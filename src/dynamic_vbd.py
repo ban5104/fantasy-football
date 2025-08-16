@@ -82,7 +82,10 @@ class DynamicVBDTransformer:
                 self._cache[cache_key] = baseline_overrides
             
             # Apply adjustments using existing VBD system
-            from src.vbd import calculate_all_vbd_methods
+            try:
+                from src.vbd import calculate_all_vbd_methods
+            except ImportError:
+                from vbd import calculate_all_vbd_methods
             
             df_adjusted = calculate_all_vbd_methods(
                 df, 
@@ -102,9 +105,13 @@ class DynamicVBDTransformer:
                 from src.vbd import calculate_all_vbd_methods
                 return calculate_all_vbd_methods(df, self.config)
             except ImportError:
-                logging.error("Static VBD module also unavailable, returning original DataFrame")
-                print("⚠️  Neither Dynamic nor Static VBD modules available")
-                return df.copy()
+                try:
+                    from vbd import calculate_all_vbd_methods
+                    return calculate_all_vbd_methods(df, self.config)
+                except ImportError:
+                    logging.error("Static VBD module also unavailable, returning original DataFrame")
+                    print("⚠️  Neither Dynamic nor Static VBD modules available")
+                    return df.copy()
         except Exception as e:
             logging.error(f"Dynamic VBD transform failed: {e}")
             logging.warning("Falling back to static VBD calculations")
@@ -114,6 +121,15 @@ class DynamicVBDTransformer:
             try:
                 from src.vbd import calculate_all_vbd_methods
                 return calculate_all_vbd_methods(df, self.config)
+            except ImportError:
+                try:
+                    from vbd import calculate_all_vbd_methods
+                    return calculate_all_vbd_methods(df, self.config)
+                except Exception as fallback_error:
+                    logging.error(f"Static VBD fallback also failed: {fallback_error}")
+                    print(f"⚠️  Static VBD fallback also failed: {fallback_error}")
+                    print("    Returning original DataFrame without VBD calculations")
+                    return df.copy()
             except Exception as fallback_error:
                 logging.error(f"Static VBD fallback also failed: {fallback_error}")
                 print(f"⚠️  Static VBD fallback also failed: {fallback_error}")

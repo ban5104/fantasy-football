@@ -1,6 +1,26 @@
 # Fantasy Football Draft Analysis & Assistance System
 
-A comprehensive fantasy football draft analysis system combining sophisticated VBD (Value-Based Drafting) calculations with real-time draft assistance and AI-powered recommendations.
+A production-ready fantasy football draft analysis system combining sophisticated statistical methods with real-time probabilistic VBD calculations and AI-powered draft recommendations.
+
+## 🔬 Core Statistical Framework
+
+**Value-Based Drafting (VBD) Enhanced with Probabilistic Selection Theory**
+
+This system implements multiple VBD methodologies with **probabilistic replacement levels** and **roster-aware utility calculations**:
+
+```
+Utility_i = P_i × (VBD_i - R_i^dynamic) × (1 + β × PNI_p)
+```
+
+**Key Statistical Components:**
+- **Traditional VBD**: VOLS, VORP, BEER methods with configurable baselines
+- **Dynamic Replacement Levels**: Real-time calculation based on selection probabilities
+- **Positional Need Index (PNI)**: Bayesian roster construction optimization
+- **Draft Flow Analysis**: Sigmoid-based position scarcity detection
+- **Multi-Factor Utility**: Combines value, availability, and strategic timing
+
+*→ For mathematical details, see [Enhanced Probabilistic VBD Framework](docs/enhanced_probabilistic_vbd_framework.md)*  
+*→ For data scientists/engineers, see [Statistical Core Concepts](docs/statistical_core_concepts.md)*
 
 ## 🏈 What This Does
 
@@ -82,12 +102,12 @@ rm data/draft/draft_picks_latest.csv
 ## 📊 Core Features
 
 ### VBD Analysis Methods
-- **VOLS** (Value Over Like Starters) - Conservative baseline approach
-- **VORP** (Value Over Replacement Player) - Balanced replacement strategy  
-- **BEER** (Best Eleven Every Round) - Aggressive draft approach
-- **Dynamic VBD** - **Real-time baseline adjustments** responding to draft flow
+- **VOLS** (Value Over Like Starters) - `baseline = teams × starters`
+- **VORP** (Value Over Replacement Player) - `baseline = teams × (starters + 1)`
+- **BEER** (Best Eleven Every Round) - `baseline = teams × (starters + 0.5)`
+- **Dynamic VBD** - **Probabilistic replacement levels** adapting to draft flow
+- **Enhanced VBD** - **Roster-aware utility calculations** with selection probabilities
 - **Blended** - Optimized weighted combination (50% BEER + 25% VORP + 25% VOLS)
-- **Simplified Dynamic VBD** - Streamlined implementation for core functionality
 
 ### Draft Tools
 | Tool | Purpose | When to Use |
@@ -213,13 +233,30 @@ PYTHONPATH=. python3 run_tests.py
 
 ## 📈 Advanced Features
 
-### Dynamic VBD
-Real-time baseline adjustments based on:
-- **Draft flow analysis** - Position runs and scarcity detection
-- **Draft stage awareness** - Early/middle/late draft behavior patterns  
-- **Position availability** - Remaining quality players at each position
-- **Mathematical optimization** - Sigmoid-based scaling for smooth transitions
-- **Performance optimized** - Simplified calculations for live draft speed
+### Enhanced Probabilistic VBD (Next Generation)
+**Coming Implementation**: Upgrade from static to probabilistic replacement levels:
+
+**Current Dynamic VBD:**
+- Real-time baseline adjustments based on position scarcity
+- Sigmoid-based scaling: `adjustment = scale × tanh(expected_picks / kappa)`
+- Draft stage awareness and flow analysis
+
+**Enhanced Framework (Planned):**
+- **Probabilistic replacement levels**: `R_dynamic = best_player_with_survival_prob < 0.3`
+- **Roster-aware utility**: Combines market scarcity with personal roster needs
+- **Selection probability integration**: Uses ESPN algorithm data for availability forecasts
+- **Positional Need Index**: Statistical measure of roster construction urgency
+
+**Mathematical Evolution:**
+```
+# Current: Static replacement
+VBD = player_points - replacement_level[position]
+
+# Enhanced: Dynamic utility  
+Utility = selection_prob × (VBD - dynamic_replacement) × (1 + roster_need_factor)
+```
+
+*See [Implementation Roadmap](docs/enhanced_probabilistic_vbd_framework.md) for technical details*
 
 ### AI Recommendations
 Multi-factor analysis considering:

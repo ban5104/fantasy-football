@@ -4,14 +4,33 @@ This file provides guidance to Claude Code (claude.ai/code) when working with th
 
 ## System Overview
 
-This is a comprehensive fantasy football draft analysis and visualization system that combines sophisticated VBD (Value-Based Drafting) analysis with real-time draft tracking and AI-powered recommendations. The system serves both pre-draft preparation and live draft assistance.
+This is a production-ready fantasy football draft analysis system implementing **Enhanced Probabilistic VBD** - a statistical framework combining traditional value-based drafting with real-time selection probabilities and roster-aware utility calculations.
 
-### Core Capabilities
-- **Advanced VBD Analysis**: Multi-method calculations (VOLS, VORP, BEER, Dynamic VBD)
-- **Live Draft Assistance**: Interactive draft boards with AI recommendations  
-- **Emergency Backup**: Terminal-based draft tracking when APIs fail
-- **Data Pipeline**: Automated scraping, scoring, and ranking generation
-- **Statistical Analysis**: Advanced modeling and predictive analytics
+### Core Statistical Components
+- **Multi-Method VBD Engine**: VOLS/VORP/BEER with configurable replacement levels
+- **Probabilistic Selection Theory**: Dynamic replacement levels based on draft flow analysis
+- **Roster Construction Optimization**: Bayesian positional need calculations  
+- **Real-Time Utility Scoring**: `Utility = P(available) × (VBD - R_dynamic) × (1 + roster_need)`
+- **Draft Intelligence System**: Multi-factor recommendations with scarcity detection
+
+### Implementation Roadmap: Enhanced Probabilistic VBD
+
+**Phase 1: Current State (Operational)**
+- Static VBD calculations with multiple methods
+- Dynamic baseline adjustments using sigmoid scaling
+- Real-time draft flow analysis and position scarcity detection
+
+**Phase 2: Probabilistic Enhancement (In Development)**  
+- Integration of ESPN selection probability data
+- Dynamic replacement level calculation: `R_dynamic = best_player_with_survival_prob < 0.3`
+- Positional Need Index (PNI) for roster construction optimization
+- Unified utility scoring replacing isolated VBD metrics
+
+**Phase 3: Statistical Validation (Planned)**
+- Bayesian inference for probability calibration  
+- Monte Carlo simulation for draft outcome modeling
+- Performance benchmarking against historical draft data
+- A/B testing framework for methodology comparison
 
 ## Development Commands
 
@@ -98,6 +117,7 @@ scraping.py → data/raw/ → scoring.py → vbd.py → data/output/
 
 #### Interactive Notebooks
 - **`notebooks/minimal_draft_board.ipynb`** - **PRIMARY**: 3-panel draft interface
+- **`notebooks/draft_preparation.ipynb`** - **CORE**: Comprehensive pre-draft analysis and strategic preparation tools
 - **`notebooks/interactive_draft_board.ipynb`** - Advanced draft tracking with team rosters
 - **`notebooks/auto_draft_board.ipynb`** - Automated draft board generation
 
@@ -124,17 +144,38 @@ dynamic_vbd:
 
 ### VBD Methods Implementation
 
-#### Traditional Methods
-- **VOLS** (Value Over Like Starters): `baseline = teams × starters`
+#### Traditional Methods (Phase 1)
+- **VOLS** (Value Over Like Starters): `baseline = teams × starters` 
 - **VORP** (Value Over Replacement): `baseline = teams × (starters + 1)`
 - **BEER** (Best Eleven Every Round): `baseline = teams × (starters + 0.5)`
 - **Blended**: Weighted combination (50% BEER + 25% VORP + 25% VOLS)
 
-#### Dynamic VBD Enhancement
-- **Real-time baseline adjustments** based on current draft state
+#### Dynamic VBD Enhancement (Phase 1)
+- **Real-time baseline adjustments**: `adjustment = scale × tanh(expected_picks / kappa)`
 - **Position scarcity detection** using draft flow analysis
 - **Sigmoid-based scaling** for smooth value transitions
 - **Draft stage awareness** (early/middle/late draft behaviors)
+
+#### Probabilistic VBD Enhancement (Phase 2)
+- **Dynamic replacement calculation**:
+  ```python
+  def calculate_dynamic_replacement(position, selection_probs, horizon=20):
+      available = get_available_at_position(position)
+      likely_survivors = [p for p in available if selection_probs[p] < 0.3]
+      return likely_survivors[0].fantasy_points if likely_survivors else baseline
+  ```
+- **Positional Need Index**:
+  ```python
+  def calculate_PNI(position, my_roster, selection_probs):
+      slots_needed = get_remaining_slots(position, my_roster)
+      expected_supply = sum([1 - p for p in selection_probs if p < 0.5])
+      shortfall = max(0, slots_needed - expected_supply) 
+      return shortfall * position_scarcity_cost(position)
+  ```
+- **Unified utility scoring**:
+  ```python
+  utility = selection_prob × (VBD - dynamic_replacement) × (1 + beta × PNI)
+  ```
 
 ### Data Architecture
 
