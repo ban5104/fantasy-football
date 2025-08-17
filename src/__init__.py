@@ -1,0 +1,1 @@
+"""Fantasy Football Draft System - Core Package"""

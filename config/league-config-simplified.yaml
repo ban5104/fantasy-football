@@ -1,0 +1,64 @@
+version: "2025-08-15-simplified"
+league_name: "Fantasy 24-25"
+
+basic_settings:
+  teams: 14
+  scoring_type: "Head to Head Points"
+
+draft:
+  type: "Snake"
+  rounds: 16
+
+roster:
+  teams: 14
+  total_size: 16
+  roster_slots:
+    QB: 1
+    RB: 2
+    WR: 2
+    TE: 1
+    FLEX: 1    # RB/WR/TE flex
+    DEF: 1     # D/ST
+    K: 1
+
+scoring:
+  passing:
+    yards: 0.04
+    touchdown: 4
+    interception: -2
+  rushing:
+    yards: 0.1
+    touchdown: 6
+  receiving:
+    yards: 0.1
+    touchdown: 6
+  kicking:
+    pat: 1
+    fg_0_39: 3
+    fg_40_49: 4
+    fg_50_59: 5
+    fg_60_plus: 6
+  defense:
+    sack: 1
+    interception: 2
+    fumble_recovery: 2
+    points_allowed:
+      "0": 5
+      "1-6": 4
+      "7-13": 3
+      "14-17": 1
+      "28-34": -1
+      "35-45": -3
+      "46+": -5
+
+vbd:
+  # Simple VBD using BEER method only
+  method: "BEER"  # Best Expected Available Remaining
+  min_players_per_position: 3
+
+dynamic_vbd:
+  enabled: true
+  # Simplified parameters
+  scale: 2.0         # Max adjustment magnitude
+  early_draft: 0.3   # First 30% of picks 
+  late_draft: 0.7    # Last 30% of picks

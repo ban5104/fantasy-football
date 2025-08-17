@@ -16,19 +16,36 @@ __pycache__/
 venv/
 .venv/
 env/
+ENV/
 .env
+.env.local
 pip-log.txt
 pip-delete-this-directory.txt
 
 # Jupyter Notebooks
 .ipynb_checkpoints/
+.ipynb_checkpoints
 */.ipynb_checkpoints/*
+
+# Data files (keep structure, ignore large datasets)
+data/raw/*.csv
+data/processed/*.csv
+data/output/*.csv
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/output/.gitkeep
+
+# Keep small config/sample files
+!data/raw/sample_*.csv
 
 # Temporary files
 tmp/
 *.tmp
 *.temp
 *.log
+
+# Logs
+logs/
 
 # IDE
 .vscode/
