@@ -1,10 +1,10 @@
 # Fantasy Football Draft Optimization System - Technical Documentation
 
 ## Project Overview
-This project implements two complementary systems:
+This project implements three complementary systems:
 1. **Probability System**: Real-time player availability predictions using weighted rankings
 2. **Monte Carlo Draft Optimizer**: Global roster optimization using advanced simulation techniques
-3. **Enhanced Probabilistic VBD**: Production-ready VBD analysis with real-time adjustments
+3. **Integrated Draft Management**: Real-time sync between manual draft entry and AI recommendations
 
 ## System Architecture
 
@@ -91,10 +91,10 @@ Calculates probability a specific player is drafted before your next pick:
 - Returns: `1 - survival_prob` (probability player is gone)
 
 ### Data Integration
-The system integrates with existing VBD (Value Based Drafting) data:
+The system integrates with existing draft data:
 - **ESPN projections**: `data/espn_projections_20250814.csv`
 - **External ADP data**: `data/fantasypros_adp_20250815.csv` 
-- **VBD scores**: `draft_cheat_sheet.csv`
+- **Draft rankings**: `draft_cheat_sheet.csv`
 
 ### Usage in Notebook
 ```python
@@ -103,7 +103,7 @@ ranking_df = load_and_merge_ranking_data()
 
 # Calculate enhanced metrics with new probability system
 enhanced_df = calculate_player_metrics_new_system(
-    ranking_df, vbd_data, 
+    ranking_df, projections_data, 
     my_picks=[8, 17, 32, 41, 56, 65, 80, 89],
     current_pick=1,
     drafted_players=set()
@@ -172,7 +172,7 @@ The system provides strategic guidance based on availability probabilities:
 - 80/20 weighting can be adjusted via function parameters
 - System handles edge cases (empty player pools, players already drafted)
 - All probabilities sum to 1.0 across available players
-- Compatible with existing VBD ranking integration
+- Compatible with existing ranking systems
 
 ---
 
@@ -361,6 +361,24 @@ The simulator requires three data files:
    - Columns: PLAYER, RANK, POSITION
 3. **Projections** (`data/projections/projections_all_positions_20250814.csv`)
    - Columns: PLAYER, MISC_FPTS or FPTS (fantasy points)
+   - **Note**: Player names include team abbreviations (e.g., "Ja'Marr Chase CIN") which are automatically stripped during data loading
+
+### Implementation Notes
+
+**File**: `notebooks/monte_carlo_mvp_simulator_fixed.ipynb`
+
+**Data Processing:**
+- Handles player name matching between projection data (includes team abbreviations) and ESPN/ADP data (clean names)
+- Configured for 14-team league with 2 WR roster spots (QB, 2RB, 2WR, TE, FLEX, K, DST)
+- Includes data validation and merge success reporting
+
+**Player Name Normalization:**
+```python
+# Extract player name without team abbreviation
+proj_df['player_name'] = proj_df['player_name'].str.replace(r'\s+[A-Z]{2,3}$', '', regex=True).str.strip()
+```
+
+This ensures "Ja'Marr Chase CIN" in projections matches "Ja'Marr Chase" in ESPN/ADP data for proper fantasy point integration.
 
 ### Advantages Over Simple Rankings
 
@@ -387,43 +405,236 @@ The simulator requires three data files:
 
 ---
 
-## Part 3: Enhanced Probabilistic VBD Framework
+## Part 3: Integrated Draft Management System
+
+### Overview
+The Integrated Draft Management System combines manual draft entry with real-time AI recommendations by creating a seamless sync between the backup draft script and Monte Carlo MVP simulator.
+
+### Architecture
+
+#### Component Integration
+```
+Manual Draft Entry → State Synchronization → AI Recommendations
+     (backup_draft.py)    (JSON file)         (Monte Carlo)
+```
+
+#### Data Flow
+1. **Draft Setup**: User selects team position from config-based team list
+2. **Manual Entry**: Draft picks entered via terminal interface
+3. **Auto-Sync**: State automatically exported to `monte_carlo_state.json`
+4. **AI Analysis**: Monte Carlo simulator reloads state for updated recommendations
+5. **Decision Support**: Real-time EV calculations and availability predictions
+
+### Implementation Details
+
+#### Team Configuration System
+**File**: `config/league-config.yaml`
+```yaml
+team_names:
+  - "Team 1"      # Pick 1, 28, 29, 56...
+  - "Team 2"      # Pick 2, 27, 30, 55...
+  # ... 14 teams total
+```
+
+**Features**:
+- Config-driven team names with dynamic fallback
+- Snake draft position calculation
+- Automatic league size detection
+
+#### Manual Draft Interface
+**File**: `backup_draft.py`
+
+**Key Components**:
+- `load_team_names_from_config()`: Config loading with fallback to generated names
+- `select_draft_position()`: Interactive team selection menu (1-14)
+- `export_monte_carlo_state()`: Automatic state sync after each pick
+- `show_draft_order()`: Snake draft visualization command
+
+**Team Selection Flow**:
+```
+🏈 SELECT YOUR DRAFT POSITION
+========================================
+   1. Team 1
+   2. Team 2
+   ...
+  14. Team 14
+
+Select your position (1-14): 8
+✅ You are: Team 8 (Pick #8)
+📍 Your picks: #8, #21, #36, #49, ...
+```
+
+#### State Synchronization
+**File**: `data/draft/monte_carlo_state.json`
+
+**State Structure**:
+```json
+{
+  "my_team_idx": 7,                    // 0-based team index for Monte Carlo
+  "current_global_pick": 17,           // 0-based current pick number
+  "my_current_roster": ["Player1", "Player2"],  // Your drafted players
+  "all_drafted": ["All", "Players"],  // Complete draft state
+  "timestamp": "2025-08-17T...",       // Last update time
+  "team_name": "Team 8",               // Human-readable team name
+  "total_teams": 14                    // League size
+}
+```
+
+**Index Conversion**:
+- Backup draft uses 1-based indexing (Pick #1, Team 1)
+- Monte Carlo uses 0-based indexing (team_idx: 0, pick: 0)
+- Automatic conversion in `export_monte_carlo_state()`
+
+#### Monte Carlo Integration
+**File**: `notebooks/monte_carlo_mvp_simulator_fixed.ipynb`
+
+**Auto-Reload Function**:
+```python
+def reload_draft_state():
+    """Reload CONFIG from backup draft state with validation"""
+    # Load and validate JSON state
+    # Update Monte Carlo CONFIG
+    # Display current roster and pick information
+```
+
+**Validation Features**:
+- Required keys validation (`my_team_idx`, `current_global_pick`, `my_current_roster`)
+- Data type checking (integers, lists, ranges)
+- Corrupted JSON handling
+- Clear error messages and recovery
+
+### Usage Workflow
+
+#### Pre-Draft Setup
+1. **Configure Teams** (one-time):
+   ```yaml
+   # Edit config/league-config.yaml
+   team_names:
+     - "John's Team"
+     - "Sarah's Squad"
+     # ... etc
+   ```
+
+2. **Start Draft Session**:
+   ```bash
+   python backup_draft.py
+   ```
+
+#### During Draft
+1. **Team Selection**: Choose your position (1-14) from menu
+2. **Manual Entry**: Enter picks as usual (`player_name` format)
+3. **Auto-Sync**: State exported after each pick automatically
+4. **Get Recommendations**:
+   - Open `notebooks/monte_carlo_mvp_simulator_fixed.ipynb`
+   - Run Cell 0 to reload current state
+   - Run Cells 8-11 for updated AI recommendations
+
+#### Commands Available
+- **Standard**: Player name entry, team assignments
+- **`ORDER`**: Display snake draft order visualization
+- **`STATUS`**: Show current draft progress
+- **`HELP`**: Display all available commands
+
+### Error Handling & Recovery
+
+#### Graceful Fallbacks
+- **Missing Config**: Falls back to `Team 1`, `Team 2`, etc.
+- **Corrupted JSON**: Monte Carlo shows clear error, continues working
+- **File System Issues**: Creates directories automatically, handles permissions
+- **Invalid Input**: Clear validation messages, retry prompts
+
+#### Validation Layers
+1. **Input Validation**: Team position range (1-14), numeric input
+2. **Config Validation**: Team list length, YAML structure
+3. **JSON Validation**: Required keys, data types, value ranges
+4. **File System**: Directory creation, write permissions
+
+### Testing & Quality Assurance
+
+#### Automated Testing
+- **Core Functionality**: 7 tests in `tests/test_backup_draft.py`
+- **Integration**: `test_backup_draft_integration.py`
+- **Simple Validation**: `test_simple_integration.py`
+
+#### Manual Testing Checklist
+- [ ] Team selection menu displays correctly
+- [ ] Draft picks update state file
+- [ ] Monte Carlo reloads state successfully
+- [ ] Error handling works with invalid input
+- [ ] Snake draft order displays correctly
+
+### Performance Considerations
+
+#### File I/O Optimization
+- JSON writes only after successful picks
+- Directory creation cached
+- Minimal file size (essential data only)
+
+#### Memory Management
+- State export triggered only after changes
+- No persistent connections between systems
+- Clean error recovery without memory leaks
+
+### Configuration Customization
+
+#### Team Names
+```yaml
+# Standard teams
+team_names:
+  - "Team 1"
+  - "Team 2"
+
+# Custom league
+team_names:
+  - "Dynasty Destroyers"
+  - "Fantasy Legends"
+```
+
+#### League Settings Integration
+```yaml
+basic_settings:
+  teams: 14              # Detected automatically
+  draft_type: "snake"    # Snake draft pattern
+```
+
+### Future Enhancement Opportunities
+
+#### Planned Improvements
+- **Real-time WebSocket**: Replace file-based sync with live connection
+- **Draft Strategy AI**: Pre-draft team strategy recommendations
+- **Historical Analysis**: Post-draft performance tracking
+- **Mobile Interface**: Web-based draft board for multiple devices
+
+#### Extension Points
+- **Custom Scoring**: Integration with league-specific point systems
+- **Trade Analysis**: Mid-draft trade value calculations
+- **Keeper Leagues**: Historical player retention logic
+- **Auction Drafts**: Budget management and bidding strategies
+
+This integration provides a production-ready draft management system combining the reliability of manual entry with the intelligence of AI-powered recommendations.
+
+---
+
+## Development Guide
 
 This file provides guidance to Claude Code (claude.ai/code) when working with this fantasy football draft analysis and assistance system.
 
-### VBD System Overview
+### System Overview
 
-This is a production-ready fantasy football draft analysis system implementing **Enhanced Probabilistic VBD** - a statistical framework combining traditional value-based drafting with real-time selection probabilities and roster-aware utility calculations.
+This is a production-ready fantasy football draft analysis system combining:
+- **Probability-based player availability predictions** using weighted ESPN and ADP rankings
+- **Monte Carlo simulation** for optimal draft decision-making
+- **Real-time draft tracking** with seamless integration between manual entry and AI recommendations
 
-### Core Statistical Components
-- **Multi-Method VBD Engine**: VOLS/VORP/BEER with configurable replacement levels
-- **Probabilistic Selection Theory**: Dynamic replacement levels based on draft flow analysis
-- **Roster Construction Optimization**: Bayesian positional need calculations  
-- **Real-Time Utility Scoring**: `Utility = P(available) × (VBD - R_dynamic) × (1 + roster_need)`
-- **Draft Intelligence System**: Multi-factor recommendations with scarcity detection
+### Core Components
+- **Probability Engine**: 80% ESPN + 20% ADP weighted rankings with softmax conversion
+- **Monte Carlo Optimizer**: Simulates thousands of draft outcomes to find optimal picks
+- **Draft Tracker**: Terminal-based backup system with Monte Carlo state export
+- **Interactive Notebooks**: Jupyter-based draft boards and analysis tools
 
-### Implementation Roadmap: Enhanced Probabilistic VBD
+### Development Commands
 
-**Phase 1: Current State (Operational)**
-- Static VBD calculations with multiple methods
-- Dynamic baseline adjustments using sigmoid scaling
-- Real-time draft flow analysis and position scarcity detection
-
-**Phase 2: Probabilistic Enhancement (In Development)**  
-- Integration of ESPN selection probability data
-- Dynamic replacement level calculation: `R_dynamic = best_player_with_survival_prob < 0.3`
-- Positional Need Index (PNI) for roster construction optimization
-- Unified utility scoring replacing isolated VBD metrics
-
-**Phase 3: Statistical Validation (Planned)**
-- Bayesian inference for probability calibration  
-- Monte Carlo simulation for draft outcome modeling
-- Performance benchmarking against historical draft data
-- A/B testing framework for methodology comparison
-
-## Development Commands
-
-### Environment Setup
+#### Environment Setup
 ```bash
 # Install dependencies (UV recommended)
 uv sync
@@ -434,19 +645,18 @@ export PATH="$(uv python find | head -n1 | xargs dirname):$PATH"
 python3 -c "import pandas, numpy; print('✓ Dependencies ready')"
 ```
 
-### Core Workflows
+#### Core Workflows
 
-#### Data Pipeline (Automated)
+##### Data Pipeline
 ```bash
-# Full pipeline: scraping → scoring → VBD → rankings
-python scripts/daily_update.py
+# Scrape latest projections
+python scripts/scrape_projections.py
 
-# Individual steps
-python scripts/scrape_projections.py          # Data collection
-jupyter notebook notebooks/02_analysis/03_vbd_calculations.ipynb  # VBD analysis
+# Process and analyze data
+jupyter notebook notebooks/02_analysis/*.ipynb
 ```
 
-#### Draft Day Operations
+##### Draft Day Operations
 ```bash
 # Primary: Interactive draft board
 jupyter notebook notebooks/minimal_draft_board.ipynb
@@ -454,18 +664,16 @@ jupyter notebook notebooks/minimal_draft_board.ipynb
 # Backup: Emergency terminal tracker
 python backup_draft.py
 
+# Monte Carlo simulator
+jupyter notebook notebooks/monte_carlo_mvp_simulator_fixed.ipynb
+
 # Advanced: Real-time ESPN integration
 python live_draft_tracker.py
 ```
 
-#### Testing & Validation
+##### Testing
 ```bash
 # Run all tests
-export PATH="$(uv python find | head -n1 | xargs dirname):$PATH"
-PYTHONPATH=. python3 run_tests.py
-
-# Test specific components
-PYTHONPATH=. python3 -m pytest tests/test_dynamic_vbd.py -v
 PYTHONPATH=. python3 -m pytest tests/test_backup_draft.py -v
 
 # Integration testing
@@ -473,320 +681,243 @@ python3 test_backup_draft_integration.py
 python3 test_simple_integration.py
 ```
 
-## Architecture Overview
+### Architecture Overview
 
-### Data Flow Pipeline
+#### Data Flow Pipeline
 ```
-FantasyPros → Raw Projections → Fantasy Points → VBD Calculations → Rankings
-     ↓              ↓               ↓                ↓                    ↓
-scraping.py → data/raw/ → scoring.py → vbd.py → data/output/
-                                       ↓
-                               dynamic_vbd.py (real-time adjustments)
-                                       ↓
-                           Draft Tools (notebooks/backup_draft.py)
+FantasyPros → Raw Projections → Fantasy Points → Rankings → Draft Tools
+     ↓              ↓               ↓              ↓              ↓
+scraping.py → data/raw/ → scoring.py → analysis → notebooks/backup_draft.py
 ```
 
-### Core Modules
+#### Core Modules
 
-#### Data Processing Pipeline
+##### Data Processing
 - **`src/scraping.py`** - Web scraping FantasyPros for all positions (QB/RB/WR/TE/K/DST)
 - **`src/scoring.py`** - Converts raw stats to fantasy points using configurable league scoring
-- **`src/vbd.py`** - Core VBD calculations (VOLS, VORP, BEER, Blended methods)
-- **`src/dynamic_vbd.py`** - Real-time VBD adjustments based on draft state
 - **`src/statistical_analysis.py`** - Advanced statistical modeling and analysis
 - **`src/utils.py`** - Data validation, logging, file I/O utilities
 
-#### Draft Assistance System
-- **`src/draft_engine.py`** - AI recommendation engine with multi-factor analysis
-- **`src/data_processor.py`** - Flexible CSV handling for various data sources
-- **`backup_draft.py`** - Enhanced terminal-based emergency draft tracker with Dynamic VBD integration
-- **`backup_draft_simplified.py`** - Simplified version focused on core Dynamic VBD functionality
+##### Draft Tools
+- **`backup_draft.py`** - Terminal-based emergency draft tracker with Monte Carlo integration
 - **`live_draft_tracker.py`** - ESPN API integration for real-time draft monitoring
 - **`draft_board_app.py`** - Streamlit web interface for draft boards
+- **`src/draft_engine.py`** - AI recommendation engine
+- **`src/data_processor.py`** - Flexible CSV handling for various data sources
 
-#### Interactive Notebooks
-- **`notebooks/minimal_draft_board.ipynb`** - **PRIMARY**: 3-panel draft interface
-- **`notebooks/draft_preparation.ipynb`** - **CORE**: Comprehensive pre-draft analysis and strategic preparation tools
+##### Interactive Notebooks
+- **`notebooks/minimal_draft_board.ipynb`** - Primary 3-panel draft interface
+- **`notebooks/monte_carlo_mvp_simulator_fixed.ipynb`** - Monte Carlo draft optimizer
+- **`notebooks/draft_preparation.ipynb`** - Pre-draft analysis and preparation
 - **`notebooks/interactive_draft_board.ipynb`** - Advanced draft tracking with team rosters
-- **`notebooks/auto_draft_board.ipynb`** - Automated draft board generation
 
-### Configuration System
+#### Configuration
 
-#### Central Configuration
-- **`config/league-config.yaml`** - Master configuration driving all calculations
-  - League settings (14 teams, scoring rules, roster requirements)
-  - VBD weights and calculation parameters
-  - Dynamic VBD settings and thresholds
-  - Draft stage configurations
+##### League Settings
+**`config/league-config.yaml`** - Master configuration file:
+- League settings (14 teams, scoring rules, roster requirements)
+- Team names and draft order
+- Scoring system (PPR, half-PPR, standard)
 
-#### Dynamic VBD Configuration
 ```yaml
-dynamic_vbd:
-  enabled: true
-  params:
-    scale: 3.0              # Max baseline adjustment magnitude
-    kappa: 5.0              # Sigmoid steepness for adjustments
-  draft_stages:
-    early_threshold: 0.3    # First 30% of picks
-    late_threshold: 0.7     # Last 30% of picks
+basic_settings:
+  teams: 14
+  draft_type: "snake"
+  
+team_names:
+  - "Team 1"
+  - "Team 2"
+  # ... etc
+
+scoring:
+  passing_td: 4
+  passing_yards: 0.04
+  rushing_td: 6
+  # ... etc
 ```
-
-### VBD Methods Implementation
-
-#### Traditional Methods (Phase 1)
-- **VOLS** (Value Over Like Starters): `baseline = teams × starters` 
-- **VORP** (Value Over Replacement): `baseline = teams × (starters + 1)`
-- **BEER** (Best Eleven Every Round): `baseline = teams × (starters + 0.5)`
-- **Blended**: Weighted combination (50% BEER + 25% VORP + 25% VOLS)
-
-#### Dynamic VBD Enhancement (Phase 1)
-- **Real-time baseline adjustments**: `adjustment = scale × tanh(expected_picks / kappa)`
-- **Position scarcity detection** using draft flow analysis
-- **Sigmoid-based scaling** for smooth value transitions
-- **Draft stage awareness** (early/middle/late draft behaviors)
-
-#### Probabilistic VBD Enhancement (Phase 2)
-- **Dynamic replacement calculation**:
-  ```python
-  def calculate_dynamic_replacement(position, selection_probs, horizon=20):
-      available = get_available_at_position(position)
-      likely_survivors = [p for p in available if selection_probs[p] < 0.3]
-      return likely_survivors[0].fantasy_points if likely_survivors else baseline
-  ```
-- **Positional Need Index**:
-  ```python
-  def calculate_PNI(position, my_roster, selection_probs):
-      slots_needed = get_remaining_slots(position, my_roster)
-      expected_supply = sum([1 - p for p in selection_probs if p < 0.5])
-      shortfall = max(0, slots_needed - expected_supply) 
-      return shortfall * position_scarcity_cost(position)
-  ```
-- **Unified utility scoring**:
-  ```python
-  utility = selection_prob × (VBD - dynamic_replacement) × (1 + beta × PNI)
-  ```
 
 ### Data Architecture
 
 #### Input Data Sources
 - **`data/raw/projections_*_YYYYMMDD.csv`** - FantasyPros scraped projections by position
 - **`data/CSG Fantasy Football Sheet - 2025 v13.01.csv`** - Master player database with ADP
+- **`data/espn_projections_*.csv`** - ESPN player rankings and projections
+- **`data/fantasypros_adp_*.csv`** - FantasyPros ADP data
 - **External APIs**: ESPN (when available) for live draft data
 
-#### Processing Stages
+#### Processing & Output
 - **`data/processed/`** - Intermediate calculations and transformations
 - **`data/output/`** - Final rankings and analysis outputs
 - **`data/draft/`** - Live draft state and pick history
-
-#### Output Files
-**Primary Rankings:**
-- **`vbd_rankings_top300_YYYYMMDD.csv`** - Main blended VBD rankings
-- **`rankings_vbd_*_top300_YYYYMMDD.csv`** - Individual method rankings
-- **`rankings_statistical_vbd_top300_YYYYMMDD.csv`** - Advanced statistical VBD
-
-**Draft Tools:**
 - **`draft_cheat_sheet.csv`** - Formatted draft preparation sheet
 - **`draft_picks_latest.csv`** - Current draft state (ESPN-compatible format)
+- **`monte_carlo_state.json`** - Monte Carlo simulator state
 
-## Key Development Patterns
+### Key Development Patterns
 
-### Configuration Loading
+#### Configuration Loading
 ```python
-from src.scoring import load_league_config
-config = load_league_config()  # Loads config/league-config.yaml
+import yaml
+
+# Load league configuration
+with open('config/league-config.yaml', 'r') as f:
+    config = yaml.safe_load(f)
 ```
 
-### VBD Calculation Flow
+#### Draft State Management
 ```python
-# Standard VBD calculation
-df = calculate_fantasy_points_vectorized(df, config)
-df_vbd = calculate_all_vbd_methods(df, config)
-
-# Dynamic VBD with live adjustments
-from src.dynamic_vbd import DynamicVBDTransformer
-transformer = DynamicVBDTransformer(config)
-baseline_overrides = transformer.calculate_draft_based_overrides(df, draft_probabilities)
-df_vbd = calculate_all_vbd_methods(df, config, baseline_overrides)
-```
-
-### Draft State Management
-```python
-from src.draft_engine import DraftEngine
 from backup_draft import BackupDraftTracker
 
-# AI-powered draft recommendations
-engine = DraftEngine(config)
-recommendations = engine.get_recommendations(available_players, team_needs)
-
-# Emergency backup tracking (full-featured)
-tracker = BackupDraftTracker(force_dynamic_vbd=True)
+# Emergency backup tracking
+tracker = BackupDraftTracker()
 tracker.run_interactive()
-
-# Simplified version for faster startup
-# python backup_draft_simplified.py --dynamic-vbd
 ```
 
-### Error Handling & Validation
-- **Comprehensive try/catch** with structured logging across all modules
-- **Data quality validation** before expensive VBD calculations
-- **Graceful degradation** when external APIs fail
-- **Resume capability** for interrupted draft sessions
+#### Monte Carlo Integration
+```python
+import json
 
-## Development Workflows
+# Load Monte Carlo state
+with open('data/draft/monte_carlo_state.json', 'r') as f:
+    state = json.load(f)
+    
+# State contains:
+# - my_team_idx: Your team position (0-based)
+# - current_global_pick: Current pick number
+# - my_current_roster: Your drafted players
+# - all_drafted: All drafted players
+```
 
-### Adding New VBD Methods
-1. Implement calculation in `src/vbd.py`
-2. Add configuration options to `config/league-config.yaml`
-3. Update blend weights calculation
-4. Add validation in `src/utils.py`
-5. Create test cases in `tests/`
+#### Error Handling
+- Comprehensive try/catch with structured logging
+- Graceful degradation when external APIs fail
+- Resume capability for interrupted draft sessions
+- Automatic backup saves after each pick
 
-### Extending Draft Intelligence
-1. Enhance recommendation logic in `src/draft_engine.py`
-2. Add new factors to multi-criteria decision matrix
-3. Update UI components in relevant notebooks
-4. Test with historical draft data
+### Development Workflows
 
-### Data Source Integration
+#### Adding New Features
+1. Prototype in Jupyter notebook
+2. Extract reusable functions to `src/` modules
+3. Add configuration options to `config/league-config.yaml`
+4. Create test cases in `tests/`
+5. Update documentation
+
+#### Data Source Integration
 1. Add scraping logic to `src/scraping.py`
 2. Implement data transformation in `src/data_processor.py`
 3. Update configuration schema if needed
 4. Add error handling and fallback mechanisms
 
-### Notebook Development
-1. Start with prototype in `notebooks/` appropriate directory
-2. Extract reusable functions to `src/` modules
-3. Add clear documentation and error handling
-4. Archive experimental notebooks to `99_archive/`
+### Testing
 
-## Testing Strategy
-
-### Core Functionality Tests
+#### Running Tests
 ```bash
-# VBD calculations
-PYTHONPATH=. python3 -m pytest tests/test_dynamic_vbd.py
-
-# Draft tracking
-PYTHONPATH=. python3 tests/test_backup_draft.py
+# Draft tracking tests
+PYTHONPATH=. python3 -m pytest tests/test_backup_draft.py -v
 
 # Integration tests
 python3 test_backup_draft_integration.py
+python3 test_simple_integration.py
 ```
 
-### Manual Validation
+#### Manual Validation
 ```bash
-# Test full pipeline
-python scripts/daily_update.py
+# Test backup draft tracker
+python backup_draft.py
 
-# Verify data quality
-python3 -c "
-import sys; sys.path.insert(0, '.')
-from src.utils import validate_data_quality
-import pandas as pd
-df = pd.read_csv('data/output/vbd_rankings_top300_*.csv')
-print(validate_data_quality(df))
-"
+# Test Monte Carlo simulator
+jupyter notebook notebooks/monte_carlo_mvp_simulator_fixed.ipynb
 ```
 
-### Environment Issues Resolution
+#### Environment Issues Resolution
 - **ModuleNotFoundError**: Ensure `export PATH="$(uv python find | head -n1 | xargs dirname):$PATH"`
 - **Import failures**: Use `PYTHONPATH=.` prefix for all Python commands
 - **Package conflicts**: Re-run `uv sync` or fallback to `uv pip install -r requirements_draft_board.txt`
 
-## Performance Considerations
+### Performance Considerations
 
-### Optimization Patterns
+#### Optimization Patterns
 - **Vectorized pandas operations** for all statistical calculations
-- **Position-based parallel processing** for VBD calculations
-- **Caching mechanisms** in Dynamic VBD to avoid recalculation
+- **Efficient player search** using string matching and indexing
+- **Caching mechanisms** for frequently accessed data
 - **Top 300 focus** to limit memory usage for draft-relevant players
 
-### Memory Management
-- **Lazy loading** of large datasets
-- **Incremental processing** for live draft updates
-- **Garbage collection** after expensive operations
+#### Memory Management
+- Lazy loading of large datasets
+- Incremental processing for live draft updates
+- Efficient DataFrame operations
 
-### Scalability
-- **Configurable league sizes** through YAML configuration
-- **Modular architecture** allowing selective feature enabling
-- **API rate limiting** with respectful delays (2-second intervals)
+#### Scalability
+- Configurable league sizes through YAML configuration
+- Modular architecture allowing selective feature enabling
+- API rate limiting with respectful delays (2-second intervals)
 
-## Security & Data Handling
+### Security & Data Handling
 
-### Data Privacy
-- **No personal information** stored in player databases
-- **Local file storage** only - no external data transmission
-- **Anonymized draft tracking** using team numbers
+#### Data Privacy
+- No personal information stored in player databases
+- Local file storage only - no external data transmission
+- Anonymized draft tracking using team numbers
 
-### API Usage
-- **Rate-limited requests** to FantasyPros (2-second delays)
-- **Graceful failure handling** when external services are unavailable
-- **No API keys required** for core functionality
+#### API Usage
+- Rate-limited requests to FantasyPros (2-second delays)
+- Graceful failure handling when external services are unavailable
+- No API keys required for core functionality
 
-## Advanced Features
+### Advanced Features
 
-### Dynamic VBD Implementation
-- **Real-time draft flow analysis** using smoothed probability distributions
-- **Position scarcity modeling** with mathematical rigor
-- **Adaptive baseline calculation** based on draft stage and team behaviors
-- **Cache optimization** for live draft performance
+#### Monte Carlo Draft Simulation
+- Simulates thousands of draft outcomes
+- Calculates expected value for each player
+- Provides availability probabilities
+- Optimizes roster construction
 
-### AI Draft Recommendations
-- **Multi-factor scoring** considering value, need, scarcity, and timing
-- **Tier break detection** for strategic positional runs
-- **Roster construction optimization** based on remaining draft capital
-- **Historical pattern analysis** for draft flow prediction
+#### AI Draft Recommendations
+- Multi-factor scoring considering value and need
+- Tier break detection for strategic positional runs
+- Roster construction optimization
+- Pattern analysis for draft flow prediction
 
-### Statistical Analysis
-- **Advanced modeling** in `src/statistical_analysis.py`
-- **Predictive analytics** for player performance
-- **Monte Carlo simulations** for draft outcome modeling
-- **Bayesian inference** for updated player valuations
+### Troubleshooting
 
-## Troubleshooting Common Issues
-
-### Environment Setup
+#### Environment Setup
 - **UV sync failures**: Use `uv pip install -r requirements_draft_board.txt`
 - **Python path issues**: Always use `PYTHONPATH=.` prefix
 - **Module import errors**: Verify UV environment activation
 
-### Data Issues
+#### Data Issues
 - **Scraping failures**: Check FantasyPros site availability, inspect network logs
-- **VBD calculation errors**: Validate input data quality, check for missing columns
+- **CSV format errors**: Validate data quality, check for missing columns
 - **Draft tracking issues**: Verify CSV format compatibility, check file permissions
 
-### Performance Problems
+#### Performance Problems
 - **Slow calculations**: Profile code, consider reducing player scope
 - **Memory issues**: Monitor DataFrame sizes, implement lazy loading
 - **UI responsiveness**: Optimize real-time update frequency
 
-## League Customization
+### League Customization
 
-### Scoring Configuration
+#### Scoring Configuration
 - Modify `config/league-config.yaml` scoring section
 - All major scoring systems supported (PPR, Half-PPR, Standard)
 - Complex scoring rules (defensive TDs, return yards) handled
 
-### Roster Configuration
+#### Roster Configuration
 - Flexible position requirements (supports FLEX, SUPERFLEX)
 - Configurable bench sizes and roster maximums
 - Custom position eligibility rules
 
-### VBD Customization
-- Adjustable replacement level calculations
-- Configurable blend weights for different draft strategies
-- Dynamic VBD parameters tunable for league tendencies
+### Integration Points
 
-## Integration Points
-
-### External Systems
+#### External Systems
 - **ESPN API**: Live draft monitoring (when available)
 - **FantasyPros**: Primary data source for projections
 - **CSV Import/Export**: Compatible with popular fantasy platforms
 
-### Extensibility
-- **Plugin architecture** for new data sources
-- **Configurable UI components** in Jupyter notebooks
-- **Modular calculation engine** allowing custom VBD methods
+#### Extensibility
+- Plugin architecture for new data sources
+- Configurable UI components in Jupyter notebooks
+- Modular calculation engine for custom analysis
 
-This system represents a production-ready fantasy football draft assistance platform with both analytical depth and practical usability for live draft scenarios.
+This system provides a production-ready fantasy football draft assistance platform optimized for live draft scenarios with Monte Carlo simulation and probability-based predictions.
