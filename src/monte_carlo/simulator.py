@@ -1,47 +1,24 @@
-"""
-Monte Carlo Simulation Engine for Fantasy Football Draft
-Pure simulation logic - no data loading or strategy definitions
-"""
+"""Monte Carlo Simulation Engine - Simplified"""
 
 import numpy as np
 import pandas as pd
 from typing import Dict, List, Optional, Set, Tuple
-from collections import defaultdict
+from collections import defaultdict, Counter
 import time
 
 from .strategies import ROSTER_REQUIREMENTS, POSITION_LIMITS, ROUND_POSITION_VALIDITY
-from .depth import DepthEvaluator
 
 
 class MonteCarloSimulator:
     """Run Monte Carlo simulations for draft strategy evaluation"""
     
-    def __init__(self, 
-                 probability_model,
-                 opponent_model,
-                 n_teams: int = 14,
-                 n_rounds: int = 14):  # Default to 14 rounds for full draft
-        """
-        Initialize simulator
-        
-        Args:
-            probability_model: ProbabilityModel instance
-            opponent_model: OpponentModel instance
-            n_teams: Number of teams in league
-            n_rounds: Number of rounds to simulate
-        """
+    def __init__(self, probability_model, opponent_model, n_teams=14, n_rounds=14):
         self.prob_model = probability_model
         self.opponent_model = opponent_model
         self.n_teams = n_teams
         self.n_rounds = n_rounds
         
-        # Initialize depth evaluator for 14+ round analysis
-        if hasattr(probability_model, 'players_df'):
-            self.depth_evaluator = DepthEvaluator(probability_model.players_df)
-        else:
-            self.depth_evaluator = None
-        
-    def generate_snake_order(self) -> List[int]:
+    def generate_snake_order(self):
         """Generate snake draft pick order"""
         order = []
         for round_num in range(self.n_rounds):
@@ -51,70 +28,8 @@ class MonteCarloSimulator:
                 order.extend(reversed(range(self.n_teams)))
         return order
         
-    def calculate_roster_value(self, roster_players: List[dict], 
-                              include_depth: bool = None) -> Dict:
-        """
-        Calculate total value of a roster with dual value system
-        
-        Args:
-            roster_players: List of player dictionaries with 'pos' and 'proj' keys
-            include_depth: Whether to include depth analysis (auto-detect if None)
-            
-        Returns:
-            Dictionary with starter_points, depth_value, total_value, and metrics
-        """
-        # Auto-detect depth mode based on number of rounds and roster size
-        if include_depth is None:
-            include_depth = (self.n_rounds >= 10 and len(roster_players) >= 10 
-                           and self.depth_evaluator is not None)
-        # Calculate optimal starting lineup
-        starters, starter_points = self._calculate_optimal_lineup(roster_players)
-        
-        # Calculate consistency score
-        if len(roster_players) > 0:
-            projections = [p['proj'] for p in roster_players]
-            avg_proj = np.mean(projections)
-            std_proj = np.std(projections)
-            coefficient_of_variation = std_proj / avg_proj if avg_proj > 0 else 1.0
-            consistency_score = starter_points / (1 + coefficient_of_variation)
-            composite_value = 0.8 * starter_points + 0.2 * consistency_score
-        else:
-            consistency_score = 0.0
-            composite_value = starter_points
-        
-        # Initialize return value
-        result = {
-            'starter_points': starter_points,
-            'starters': starters,
-            'consistency_score': consistency_score,
-            'composite_value': composite_value,
-            'total_value': starter_points,  # Will be updated if depth included
-            'depth_metrics': None
-        }
-        
-        # Add depth analysis for 14-round drafts
-        if include_depth and self.depth_evaluator:
-            depth_metrics = self.depth_evaluator.evaluate_depth(roster_players, starters)
-            depth_value = depth_metrics['depth_value']
-            
-            result.update({
-                'depth_metrics': depth_metrics,
-                'depth_value': depth_value,
-                'total_value': starter_points + depth_value
-            })
-            
-        return result
-        
-    def _calculate_optimal_lineup(self, roster_players: List[dict]) -> Tuple[List[dict], float]:
-        """
-        Calculate optimal starting lineup from roster
-        
-        Args:
-            roster_players: List of player dictionaries
-            
-        Returns:
-            Tuple of (starters_list, total_points)
-        """
+    def calculate_roster_value(self, roster_players):
+        """Calculate total value of a roster from optimal starting lineup"""
         # Group by position
         position_players = defaultdict(list)
         for player in roster_players:
@@ -179,27 +94,24 @@ class MonteCarloSimulator:
             starters.append(starter)
             total_points += starter['proj']
             
-        return starters, total_points
-        
-    def select_best_player(self,
-                          available_players: Set[int],
-                          my_roster: List[dict],
-                          strategy_multipliers: dict,
-                          round_num: int,
-                          recent_picks: Optional[List[str]] = None) -> Optional[int]:
-        """
-        Select best player for our team based on strategy
-        
-        Args:
-            available_players: Set of available player IDs
-            my_roster: Current roster (list of player dicts)
-            strategy_multipliers: Position multipliers from strategy
-            round_num: Current round (1-based)
-            recent_picks: Recent picks for position run detection
+        # Simple depth bonus for 14-round drafts
+        depth_bonus = 0.0
+        if self.n_rounds >= 10:
+            bench_size = len(roster_players) - len(starters)
+            if bench_size > 0:
+                bench_players = [p for p in roster_players if p not in starters]
+                bench_value = sum(p['proj'] for p in bench_players)
+                depth_bonus = bench_value * 0.1  # 10% of bench value as depth bonus
             
-        Returns:
-            Player ID to draft, or None if no valid options
-        """
+        return {
+            'starter_points': total_points,
+            'depth_bonus': depth_bonus,
+            'total_value': total_points + depth_bonus,
+            'starters': starters
+        }
+        
+    def select_best_player(self, available_players, my_roster, strategy_multipliers, round_num, recent_picks=None):
+        """Select best player for our team based on strategy"""
         if not available_players:
             return None
             
@@ -209,21 +121,18 @@ class MonteCarloSimulator:
             pos_counts[player['pos']] += 1
             
         # Get valid positions for this round
-        valid_positions = ROUND_POSITION_VALIDITY.get(round_num, 
-                                                      ['RB', 'WR', 'TE', 'QB'])
+        valid_positions = ROUND_POSITION_VALIDITY.get(round_num, ['RB', 'WR', 'TE', 'QB'])
         
-        # Detect position runs (2+ same position in last 3 picks)
+        # Detect position runs
         run_multipliers = {}
         if recent_picks and len(recent_picks) >= 3:
             last_3 = recent_picks[-3:]
             for pos in ['RB', 'WR', 'QB', 'TE']:
                 if last_3.count(pos) >= 2:
-                    run_multipliers[pos] = 1.2  # Boost probability
+                    run_multipliers[pos] = 1.2
         
-        # Score each available player
         best_score = -np.inf
         best_player_id = None
-        
         players_df = self.prob_model.players_df
         
         for player_id in available_players:
@@ -233,32 +142,20 @@ class MonteCarloSimulator:
             player_data = players_df.loc[player_id]
             pos = player_data['pos']
             
-            # Skip if position not valid for round
-            if pos not in valid_positions:
-                continue
-                
-            # Skip if at position limit
-            if pos_counts[pos] >= POSITION_LIMITS.get(pos, 3):
+            # Skip if position not valid for round or at limit
+            if pos not in valid_positions or pos_counts[pos] >= POSITION_LIMITS.get(pos, 3):
                 continue
                 
             # Calculate score
-            # Base score from projections and rank
             proj = player_data['proj']
             rank = player_data['espn_rank']
             base_score = proj / (rank + 10)
             
-            # Apply strategy multiplier
+            # Apply strategy and need multipliers
             strategy_mult = strategy_multipliers.get(pos, 1.0)
-            
-            # Apply need multiplier (prefer unfilled positions)
-            need_mult = 1.0
-            if pos_counts[pos] < ROSTER_REQUIREMENTS.get(pos, 0):
-                need_mult = 1.5  # Boost for needed positions
-                
-            # Apply run multiplier
+            need_mult = 1.5 if pos_counts[pos] < ROSTER_REQUIREMENTS.get(pos, 0) else 1.0
             run_mult = run_multipliers.get(pos, 1.0)
                 
-            # Final score
             score = base_score * strategy_mult * need_mult * run_mult
             
             if score > best_score:
@@ -267,25 +164,8 @@ class MonteCarloSimulator:
                 
         return best_player_id
         
-    def simulate_single_draft(self,
-                             my_team_idx: int,
-                             strategy_multipliers: dict,
-                             seed: int = 42,
-                             initial_roster: Optional[List[str]] = None,
-                             already_drafted: Optional[Set[str]] = None) -> dict:
-        """
-        Simulate a single draft
-        
-        Args:
-            my_team_idx: Our team index (0-based)
-            strategy_multipliers: Position multipliers from strategy
-            seed: Random seed for reproducibility
-            initial_roster: Optional starting roster (for live drafts)
-            already_drafted: Optional set of already drafted player names
-            
-        Returns:
-            Dictionary with simulation results
-        """
+    def simulate_single_draft(self, my_team_idx, strategy_multipliers, seed=42, initial_roster=None, already_drafted=None):
+        """Simulate a single draft"""
         rng = np.random.default_rng(seed)
         
         # Initialize available players
@@ -295,7 +175,6 @@ class MonteCarloSimulator:
         # Handle already drafted players
         if already_drafted:
             for player_name in already_drafted:
-                # Find and remove player by name
                 mask = players_df['player_name'] == player_name
                 if mask.any():
                     player_id = players_df[mask].index[0]
@@ -324,10 +203,9 @@ class MonteCarloSimulator:
         recent_picks = []
         position_sequence = []
         
-        # Generate pick order
+        # Generate pick order and simulate
         pick_order = self.generate_snake_order()
         
-        # Simulate each pick
         for pick_num, team_idx in enumerate(pick_order):
             if not available:
                 break
@@ -336,9 +214,7 @@ class MonteCarloSimulator:
             
             if team_idx == my_team_idx:
                 # Our pick
-                player_id = self.select_best_player(
-                    available, my_roster, strategy_multipliers, round_num, recent_picks
-                )
+                player_id = self.select_best_player(available, my_roster, strategy_multipliers, round_num, recent_picks)
                 
                 if player_id:
                     player_data = {
@@ -369,41 +245,21 @@ class MonteCarloSimulator:
             if len(recent_picks) > 10:
                 recent_picks.pop(0)
                 
-        # Calculate final roster value with depth analysis
+        # Calculate final roster value
         roster_analysis = self.calculate_roster_value(my_roster)
         
         return {
             'roster': my_roster,
             'position_sequence': position_sequence,
-            'roster_value': roster_analysis['total_value'],  # For backward compatibility
+            'roster_value': roster_analysis['total_value'],
             'starter_points': roster_analysis['starter_points'],
-            'consistency_score': roster_analysis['consistency_score'],
-            'composite_value': roster_analysis['composite_value'],
-            'depth_value': roster_analysis.get('depth_value', 0.0),
-            'depth_metrics': roster_analysis.get('depth_metrics'),
+            'depth_bonus': roster_analysis['depth_bonus'],
             'starters': roster_analysis['starters'],
             'num_players': len(my_roster)
         }
         
-    def run_simulations(self,
-                       my_team_idx: int,
-                       strategy_name: str,
-                       n_sims: int = 100,
-                       initial_roster: Optional[List[str]] = None,
-                       already_drafted: Optional[Set[str]] = None) -> dict:
-        """
-        Run multiple simulations and aggregate results
-        
-        Args:
-            my_team_idx: Our team index (0-based)
-            strategy_name: Name of strategy to use
-            n_sims: Number of simulations to run
-            initial_roster: Optional starting roster
-            already_drafted: Optional already drafted players
-            
-        Returns:
-            Dictionary with aggregated results
-        """
+    def run_simulations(self, my_team_idx, strategy_name, n_sims=100, initial_roster=None, already_drafted=None):
+        """Run multiple simulations and aggregate results"""
         from .strategies import get_strategy
         
         strategy = get_strategy(strategy_name)
@@ -415,45 +271,31 @@ class MonteCarloSimulator:
         start_time = time.time()
         
         for sim_idx in range(n_sims):
-            # Run simulation
             result = self.simulate_single_draft(
-                my_team_idx,
-                strategy_multipliers,
-                seed=42 + sim_idx,
-                initial_roster=initial_roster,
-                already_drafted=already_drafted
+                my_team_idx, strategy_multipliers, seed=42 + sim_idx,
+                initial_roster=initial_roster, already_drafted=already_drafted
             )
             
             results.append(result)
             
-            # Track position patterns
+            # Track simple position patterns
             seq = result['position_sequence']
             if len(seq) >= 2:
                 position_patterns['2_round'].append('-'.join(seq[:2]))
             if len(seq) >= 3:
                 position_patterns['3_round'].append('-'.join(seq[:3]))
-            if len(seq) >= 4:
-                position_patterns['4_round'].append('-'.join(seq[:4]))
                 
         elapsed = time.time() - start_time
         
         # Aggregate results
         values = [r['roster_value'] for r in results]
         
-        # Calculate confidence intervals
-        confidence_intervals = {
-            '95': (np.percentile(values, 2.5), np.percentile(values, 97.5)),
-            '50': (np.percentile(values, 25), np.percentile(values, 75)),
-            'median': np.median(values)
-        }
-        
         # Find most common patterns
         pattern_frequencies = {}
         for pattern_type, patterns in position_patterns.items():
             if patterns:
-                from collections import Counter
                 counts = Counter(patterns)
-                pattern_frequencies[pattern_type] = counts.most_common(5)
+                pattern_frequencies[pattern_type] = counts.most_common(3)
                 
         return {
             'strategy': strategy_name,
@@ -462,7 +304,6 @@ class MonteCarloSimulator:
             'std_value': np.std(values),
             'max_value': np.max(values),
             'min_value': np.min(values),
-            'confidence_intervals': confidence_intervals,
             'pattern_frequencies': pattern_frequencies,
             'elapsed_time': elapsed,
             'all_results': results
