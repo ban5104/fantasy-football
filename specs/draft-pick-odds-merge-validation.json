@@ -1,0 +1,113 @@
+{
+  "version": "1.0",
+  "name": "draft-pick-odds-merge-validation",
+  "description": "Validates draft-pick-odds branch safety for merge to main - core probability system, data integrity, API endpoints, and frontend functionality",
+  "generated_by": "spec-generator",
+  "generated_at": "2025-08-16T00:00:00Z",
+  "acceptance": [
+    {
+      "id": "data-files-exist",
+      "type": "static",
+      "command": "test -f data/espn_projections_20250814.csv && test -f data/fantasypros_adp_20250815.csv && test -f draft_cheat_sheet.csv && test -f config/league-config.yaml",
+      "description": "Verifies all required data files exist for probability calculations",
+      "expect": {
+        "exitCode": 0
+      }
+    },
+    {
+      "id": "data-integrity-check",
+      "type": "custom",
+      "command": "python3 -c \"import pandas as pd; espn=pd.read_csv('data/espn_projections_20250814.csv'); vbd=pd.read_csv('draft_cheat_sheet.csv'); adp=pd.read_csv('data/fantasypros_adp_20250815.csv'); assert len(espn) > 200, 'ESPN data too small'; assert len(vbd) > 150, 'VBD data too small'; assert len(adp) > 200, 'ADP data too small'; assert 'overall_rank' in espn.columns; assert 'Custom_VBD' in vbd.columns; assert 'ADP' in adp.columns; print('Data integrity verified')\"",
+      "description": "Validates data file structure and minimum record counts for probability calculations",
+      "expect": {
+        "exitCode": 0
+      }
+    },
+    {
+      "id": "probability-system-validation",
+      "type": "unit",
+      "command": "python3 -c \"exec(open('api/main.py').read()); import pandas as pd; df = load_data(); assert len(df) > 100, 'Merged data too small'; probs = compute_pick_probabilities(df.head(50)); assert abs(probs.sum() - 1.0) < 0.001, f'Probabilities dont sum to 1.0: {probs.sum()}'; avail = calculate_availability_probability(1, 1, 8); assert 0 <= avail <= 100, f'Invalid availability probability: {avail}'; print('Core probability system validated')\"",
+      "description": "Tests 80% ESPN + 20% ADP probability system and discrete survival calculations",
+      "expect": {
+        "exitCode": 0
+      }
+    },
+    {
+      "id": "vbd-integration-test",
+      "type": "unit",
+      "command": "python3 archive/test_vbd_integration.py",
+      "description": "Validates VBD data integration uses Custom_VBD values instead of ESPN salary values",
+      "expect": {
+        "exitCode": 0
+      }
+    },
+    {
+      "id": "api-server-startup",
+      "type": "http",
+      "command": "timeout 10s python3 -m uvicorn api.main:app --host 0.0.0.0 --port 8000 &",
+      "description": "Validates FastAPI server can start successfully without errors",
+      "expect": {
+        "exitCode": 0
+      }
+    },
+    {
+      "id": "api-draft-state-endpoint",
+      "type": "http",
+      "command": "curl -s -f http://localhost:8000/api/draft-state",
+      "description": "Tests draft state API endpoint returns valid JSON with required fields",
+      "expect": {
+        "status": 200
+      }
+    },
+    {
+      "id": "api-players-endpoint",
+      "type": "http",
+      "command": "curl -s -f http://localhost:8000/api/players?current_pick=1",
+      "description": "Tests players API endpoint returns probability calculations",
+      "expect": {
+        "status": 200
+      }
+    },
+    {
+      "id": "frontend-build-test",
+      "type": "static",
+      "command": "cd frontend && npm install --silent && npm run build",
+      "description": "Validates frontend TypeScript compilation and build process",
+      "expect": {
+        "exitCode": 0
+      }
+    },
+    {
+      "id": "notebook-execution-test",
+      "type": "custom",
+      "command": "python3 -c \"import nbformat; from nbconvert.preprocessors import ExecutePreprocessor; nb = nbformat.read('espn_probability_matrix.ipynb', as_version=4); ep = ExecutePreprocessor(timeout=60, kernel_name='python3'); ep.preprocess(nb, {'metadata': {'path': '.'}}); print('Notebook executed successfully')\"",
+      "description": "Validates main probability matrix notebook executes without errors",
+      "expect": {
+        "exitCode": 0
+      }
+    },
+    {
+      "id": "widget-fix-validation",
+      "type": "unit",
+      "command": "python3 test_widget_fix.py",
+      "description": "Tests widget fixes prevent duplicate display and handle probability columns correctly",
+      "expect": {
+        "exitCode": 0
+      }
+    },
+    {
+      "id": "docker-build-test",
+      "type": "static",
+      "command": "docker build -t fantasy-draft-test . --quiet",
+      "description": "Validates Docker containerization builds successfully",
+      "expect": {
+        "exitCode": 0
+      }
+    }
+  ],
+  "policy": {
+    "risk_level": "medium",
+    "auto_merge_if_low_risk": false,
+    "migration_requires_manual_approval": true
+  }
+}
