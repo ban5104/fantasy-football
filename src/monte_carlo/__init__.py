@@ -4,6 +4,15 @@ from .probability import ProbabilityModel
 from .opponent import OpponentModel  
 from .simulator import MonteCarloSimulator
 from .strategies import get_strategy, list_strategies
+from .replacement import calculate_replacement_levels
+
+# Export public API including wrapper functions
+__all__ = [
+    'ProbabilityModel', 'OpponentModel', 'MonteCarloSimulator',
+    'get_strategy', 'list_strategies', 'calculate_replacement_levels',
+    'DraftSimulator', 'quick_simulation', 'compare_all_strategies', 
+    'discover_patterns', 'PatternDetector'
+]
 
 import json
 import os
@@ -37,16 +46,19 @@ class DraftSimulator:
         except:
             return None
             
-    def run_strategy_comparison(self, my_team_idx, n_sims=100):
-        """Compare all strategies for a draft position"""
+    def run_strategy_comparison(self, my_team_idx, n_sims=100, base_seed=42):
+        """Compare all strategies for a draft position using consistent random seeds"""
         results = {}
         
         for strategy_name in list_strategies():
             print(f"Testing {strategy_name} strategy...")
-            result = self.simulator.run_simulations(my_team_idx, strategy_name, n_sims)
+            result = self.simulator.run_simulations_with_fixed_seeds(
+                my_team_idx, strategy_name, n_sims, base_seed
+            )
             results[strategy_name] = {
                 'mean_value': result['mean_value'],
-                'std_value': result['std_value']
+                'std_value': result['std_value'],
+                'patterns': result.get('patterns', {})
             }
             
         sorted_results = sorted(results.items(), key=lambda x: x[1]['mean_value'], reverse=True)
@@ -72,3 +84,31 @@ def quick_simulation(my_pick_number=5, strategy='balanced', n_sims=100):
     sim = DraftSimulator()
     my_team_idx = my_pick_number - 1
     return sim.simulator.run_simulations(my_team_idx, strategy, n_sims)
+
+
+def compare_all_strategies(my_pick_number=5, n_sims=100, n_rounds=14, base_seed=42):
+    """Compare all strategies for a draft position using consistent random seeds"""
+    sim = DraftSimulator(n_rounds=n_rounds)
+    my_team_idx = my_pick_number - 1
+    return sim.run_strategy_comparison(my_team_idx, n_sims, base_seed)
+
+
+def discover_patterns(my_pick_number=5, strategy='balanced', n_sims=100):
+    """Discover draft patterns (simplified wrapper)"""
+    result = quick_simulation(my_pick_number, strategy, n_sims)
+    return {
+        'strategy': strategy,
+        'patterns': result.get('pattern_frequencies', {}),
+        'mean_value': result.get('mean_value', 0),
+        'simulations': n_sims
+    }
+
+
+class PatternDetector:
+    """Simple pattern detector wrapper"""
+    def __init__(self, n_sims=100):
+        self.n_sims = n_sims
+        
+    def analyze_position_flows(self, my_pick_number=5, strategy='balanced'):
+        """Analyze position draft flows"""
+        return discover_patterns(my_pick_number, strategy, self.n_sims)

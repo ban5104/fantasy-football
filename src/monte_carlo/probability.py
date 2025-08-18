@@ -3,7 +3,7 @@
 import numpy as np
 import pandas as pd
 import os
-from typing import Dict, Set, Optional
+from typing import Dict, Set, Optional, List
 
 
 class ProbabilityModel:
@@ -14,6 +14,8 @@ class ProbabilityModel:
         self.adp_weight = adp_weight
         self.temperature = temperature
         self.players_df = None
+        self.rng = np.random.default_rng(42)
+        self.beta_concentration = 4.0
         
     def load_data(self, base_path=None):
         """Load and merge ESPN rankings, ADP data, and projections"""
@@ -68,7 +70,7 @@ class ProbabilityModel:
             return pd.DataFrame()
             
     def _load_projections(self, base_path):
-        """Load fantasy point projections"""
+        """Load fantasy point projections with envelope data"""
         proj_file = os.path.join(base_path, 'data/rankings_top300_20250814.csv')
         
         try:
@@ -78,7 +80,25 @@ class ProbabilityModel:
                                          .str.replace(r'\s+[A-Z]{2,3}$', '', regex=True)
                                          .str.strip())
                 proj_df['proj'] = proj_df['FANTASY_PTS'].fillna(100)
-                return proj_df[['player_name', 'proj', 'POSITION']]
+                
+                # Try to load envelope data if available
+                envelope_file = os.path.join(base_path, 'data/player_envelopes.csv')
+                if os.path.exists(envelope_file):
+                    try:
+                        env_df = pd.read_csv(envelope_file)
+                        # Expecting columns: player_name, low, base, high
+                        proj_df = proj_df.merge(env_df, on='player_name', how='left')
+                        print(f"Loaded envelope data for {len(env_df)} players")
+                    except Exception as e:
+                        print(f"Warning: Error loading envelope data: {e}")
+                else:
+                    # Create envelope data from projections (BASE ± 20%)
+                    proj_df['base'] = proj_df['proj']
+                    proj_df['low'] = proj_df['proj'] * 0.8
+                    proj_df['high'] = proj_df['proj'] * 1.2
+                    print("Created envelope data from projections (±20%)")
+                
+                return proj_df[['player_name', 'proj', 'POSITION', 'low', 'base', 'high']]
             else:
                 print(f"Warning: Projections file not found at {proj_file}")
                 return pd.DataFrame()
@@ -119,6 +139,22 @@ class ProbabilityModel:
         merged['espn_rank'] = merged.get('espn_rank', 300).fillna(300)
         merged['adp_rank'] = merged.get('adp_rank', 300).fillna(300)
         merged['proj'] = merged.get('proj', 50).fillna(50)
+        
+        # Fix envelope data - fill NaN values and ensure proper bounds
+        if 'low' in merged.columns:
+            merged['low'] = merged['low'].fillna(merged['proj'] * 0.8)
+        else:
+            merged['low'] = merged['proj'] * 0.8
+            
+        if 'base' in merged.columns:
+            merged['base'] = merged['base'].fillna(merged['proj'])
+        else:
+            merged['base'] = merged['proj']
+            
+        if 'high' in merged.columns:
+            merged['high'] = merged['high'].fillna(merged['proj'] * 1.2)
+        else:
+            merged['high'] = merged['proj'] * 1.2
         
         # Drop rows without player names and add IDs
         merged = merged.dropna(subset=['player_name'])
@@ -190,3 +226,105 @@ class ProbabilityModel:
         
         # Discrete survival: (1 - p)^n
         return (1 - player_prob) ** picks_until_next
+    
+    def sample_projections(self, player_ids: List[int] = None, sim_seed: int = None) -> Dict[int, float]:
+        """Sample player projections using Beta-PERT distribution. Handles both individual and batch sampling."""
+        if self.players_df is None:
+            return {}
+            
+        # If no specific players requested, sample all
+        if player_ids is None:
+            player_ids = list(self.players_df.index)
+        elif isinstance(player_ids, int):
+            # Single player case
+            player_ids = [player_ids]
+            
+        # Use simulation-specific seed for reproducibility
+        if sim_seed is not None:
+            rng = np.random.default_rng(sim_seed)
+        else:
+            rng = self.rng
+            
+        # Filter to valid player IDs
+        valid_ids = [pid for pid in player_ids if pid in self.players_df.index]
+        if not valid_ids:
+            return {}
+            
+        # Get data for requested players
+        player_data = self.players_df.loc[valid_ids]
+        
+        # Get envelope data arrays with fallbacks
+        base_values = player_data.get('base', player_data.get('proj', 100)).values
+        low_values = player_data.get('low', base_values * 0.8).values
+        high_values = player_data.get('high', base_values * 1.2).values
+        
+        # Vectorized Beta-PERT sampling
+        ranges = high_values - low_values
+        valid_mask = ranges > 1e-6
+        
+        # Initialize result array
+        sampled_values = base_values.copy()
+        
+        if np.any(valid_mask):
+            # Vectorized computation for valid cases only
+            valid_base = base_values[valid_mask]
+            valid_low = low_values[valid_mask] 
+            valid_high = high_values[valid_mask]
+            valid_ranges = valid_high - valid_low
+            
+            # Beta-PERT parameters (vectorized)
+            base_norm = (valid_base - valid_low) / valid_ranges
+            alpha = 1 + self.beta_concentration * base_norm
+            beta = 1 + self.beta_concentration * (1 - base_norm)
+            
+            # Sample Beta values for all valid players at once
+            u_samples = rng.beta(alpha, beta)
+            
+            # Transform to final values
+            sampled_values[valid_mask] = valid_low + u_samples * valid_ranges
+            
+        # Convert to dict with player IDs
+        return dict(zip(valid_ids, sampled_values))
+        
+    # Legacy methods for backward compatibility
+    def sample_player_projection(self, player_id: int, sim_seed: int = None) -> float:
+        """Legacy method - use sample_projections instead"""
+        result = self.sample_projections([player_id], sim_seed)
+        return result.get(player_id, 0.0)
+        
+    def sample_all_projections(self, sim_seed: int = None) -> Dict[int, float]:
+        """Legacy method - use sample_projections instead"""
+        return self.sample_projections(None, sim_seed)
+    
+    def has_envelope_data(self) -> bool:
+        """Check if envelope data is available"""
+        if self.players_df is None:
+            return False
+        return any(col in self.players_df.columns for col in ['low', 'base', 'high'])
+
+    def _to_dict(self) -> dict:
+        """Serialize model state for multiprocessing"""
+        return {
+            'espn_weight': self.espn_weight,
+            'adp_weight': self.adp_weight,
+            'temperature': self.temperature,
+            'beta_concentration': self.beta_concentration,
+            'players_df': self.players_df.to_dict('records') if self.players_df is not None else None,
+            'players_index': self.players_df.index.tolist() if self.players_df is not None else None
+        }
+
+    @classmethod
+    def _from_dict(cls, data: dict):
+        """Deserialize model state from multiprocessing"""
+        model = cls(
+            espn_weight=data['espn_weight'],
+            adp_weight=data['adp_weight'], 
+            temperature=data['temperature']
+        )
+        model.beta_concentration = data['beta_concentration']
+        
+        if data['players_df'] is not None:
+            model.players_df = pd.DataFrame(data['players_df'])
+            model.players_df.index = data['players_index']
+        
+        return model
