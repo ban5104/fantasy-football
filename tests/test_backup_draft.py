@@ -171,5 +171,152 @@ class TestBackupDraftTracker(unittest.TestCase):
         # So we'll just check it attempts to resume and doesn't crash
         self.assertIsNotNone(resumed_tracker)
 
+
+class TestOptimizerValidation(unittest.TestCase):
+    """Test validation and error handling for the optimizer functions"""
+    
+    def setUp(self):
+        """Set up test data for optimizer tests"""
+        # Import optimizer functions for testing
+        from src.monte_carlo.optimizer import (
+            optimize_pick, get_best_available, 
+            estimate_starter_opportunity_cost, calculate_marginal_starter_value
+        )
+        self.optimize_pick = optimize_pick
+        self.get_best_available = get_best_available
+        self.estimate_starter_opportunity_cost = estimate_starter_opportunity_cost
+        self.calculate_marginal_starter_value = calculate_marginal_starter_value
+        
+        # Sample valid data for testing
+        self.valid_roster = [
+            {'id': 1, 'pos': 'QB', 'proj': 300, 'name': 'QB1'},
+            {'id': 2, 'pos': 'RB', 'proj': 250, 'name': 'RB1'}
+        ]
+        
+        self.valid_player_cache = {
+            'pos': {1: 'QB', 2: 'RB', 3: 'WR'},
+            'proj': {1: 300, 2: 250, 3: 220},
+            'player_name': {1: 'QB1', 2: 'RB1', 3: 'WR1'}
+        }
+        
+        self.available_players = {1, 2, 3}
+    
+    def test_optimize_pick_invalid_risk_aversion(self):
+        """Test optimize_pick with invalid risk_aversion values"""
+        # Test negative risk_aversion
+        result = self.optimize_pick(
+            self.valid_roster, self.available_players, 1, 3, 
+            self.valid_player_cache, risk_aversion=-0.5
+        )
+        self.assertIsNotNone(result)  # Should use fallback value
+        
+        # Test risk_aversion > 1.0
+        result = self.optimize_pick(
+            self.valid_roster, self.available_players, 1, 3, 
+            self.valid_player_cache, risk_aversion=1.5
+        )
+        self.assertIsNotNone(result)  # Should use fallback value
+    
+    def test_optimize_pick_empty_inputs(self):
+        """Test optimize_pick with empty/invalid inputs"""
+        # Empty available_players
+        result = self.optimize_pick([], set(), 1, 3, self.valid_player_cache)
+        self.assertIsNone(result)
+        
+        # Invalid roster type
+        result = self.optimize_pick("invalid", self.available_players, 1, 3, self.valid_player_cache)
+        self.assertIsNone(result)
+        
+        # Missing player_cache keys
+        invalid_cache = {'pos': {1: 'QB'}}  # Missing 'proj' and 'player_name'
+        result = self.optimize_pick(self.valid_roster, self.available_players, 1, 3, invalid_cache)
+        self.assertIsNone(result)
+    
+    def test_get_best_available_validation(self):
+        """Test get_best_available input validation"""
+        # Empty position
+        result = self.get_best_available("", self.available_players, self.valid_player_cache)
+        self.assertIsNone(result)
+        
+        # Empty available_players
+        result = self.get_best_available("QB", set(), self.valid_player_cache)
+        self.assertIsNone(result)
+        
+        # Invalid player_cache
+        result = self.get_best_available("QB", self.available_players, {})
+        self.assertIsNone(result)
+        
+        # Missing cache keys
+        incomplete_cache = {'pos': {1: 'QB'}}  # Missing other keys
+        result = self.get_best_available("QB", self.available_players, incomplete_cache)
+        self.assertIsNone(result)
+    
+    def test_estimate_starter_opportunity_cost_validation(self):
+        """Test estimate_starter_opportunity_cost input validation"""
+        # Negative picks_until_next
+        result = self.estimate_starter_opportunity_cost(
+            self.available_players, "QB", -5, self.valid_player_cache
+        )
+        self.assertEqual(result, 0.0)
+        
+        # Empty available_players
+        result = self.estimate_starter_opportunity_cost(
+            set(), "QB", 3, self.valid_player_cache
+        )
+        self.assertEqual(result, 0.0)
+        
+        # Invalid picks_until_next type
+        result = self.estimate_starter_opportunity_cost(
+            self.available_players, "QB", "invalid", self.valid_player_cache
+        )
+        self.assertEqual(result, 0.0)
+    
+    def test_calculate_marginal_starter_value_validation(self):
+        """Test calculate_marginal_starter_value input validation"""
+        # Invalid player (missing 'proj')
+        invalid_player = {'id': 99, 'pos': 'QB', 'name': 'Invalid'}
+        result = self.calculate_marginal_starter_value(self.valid_roster, invalid_player)
+        self.assertEqual(result, 0.0)
+        
+        # Invalid roster type
+        valid_player = {'id': 99, 'pos': 'QB', 'proj': 280, 'name': 'Valid'}
+        result = self.calculate_marginal_starter_value("invalid", valid_player)
+        self.assertEqual(result, 0.0)
+        
+        # Valid inputs should work
+        result = self.calculate_marginal_starter_value(self.valid_roster, valid_player)
+        self.assertIsInstance(result, float)
+    
+    def test_performance_with_large_inputs(self):
+        """Test optimizer performance doesn't degrade significantly with larger inputs"""
+        import time
+        
+        # Create larger test dataset
+        large_roster = []
+        large_cache = {'pos': {}, 'proj': {}, 'player_name': {}}
+        large_available = set()
+        
+        positions = ['QB', 'RB', 'WR', 'TE']
+        
+        for i in range(100):  # 100 players
+            pos = positions[i % len(positions)]
+            large_roster.append({'id': i, 'pos': pos, 'proj': 200 + i, 'name': f'Player{i}'})
+            large_cache['pos'][i] = pos
+            large_cache['proj'][i] = 200 + i
+            large_cache['player_name'][i] = f'Player{i}'
+            large_available.add(i)
+        
+        # Time the operation
+        start_time = time.time()
+        result = self.optimize_pick(
+            large_roster[:10], large_available, 1, 3, large_cache
+        )
+        end_time = time.time()
+        
+        # Should complete in reasonable time (less than 1 second for this size)
+        self.assertLess(end_time - start_time, 1.0)
+        self.assertIsNotNone(result)
+
+
 if __name__ == '__main__':
     unittest.main()

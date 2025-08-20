@@ -7,12 +7,17 @@ uv sync
 
 # Draft Day
 python backup_draft.py                    # Primary draft tracker with state export
+python monte_carlo_runner.py degradation  # Positional degradation analysis (NEW!)
 python monte_carlo_runner.py compare      # AI strategy comparison (100 sims, ~30s)
 python monte_carlo_runner.py balanced     # Live draft recommendations
 
 # High-Performance Mode (NEW)
 python monte_carlo_runner.py balanced --n-sims 1000 --parallel  # 4 cores, ~88s
 python monte_carlo_runner.py compare_fast                        # CRN adaptive mode
+
+# Championship DNA Analysis (NEW)
+PYTHONPATH=. uv run python notebooks/run_championship_dna.py --pick 5 --sims 1000  # Pattern discovery
+PYTHONPATH=. uv run python notebooks/championship_dna_hybrid.py pre-draft --pick 5  # Tier-based recommendations
 
 # Testing
 PYTHONPATH=. python3 -m pytest tests/test_backup_draft.py -v
@@ -43,6 +48,7 @@ PYTHONPATH=. python3 script.py            # Alternative if UV is active
 - **Envelope Sampling**: Beta-PERT distributions from LOW/BASE/HIGH projections for uncertainty modeling
 - **Opponent Behavior Model**: Round-based weighting (90% rankings early → 80% needs late)
 - **Monte Carlo Engine**: Pure simulation logic with probabilistic projections and strategy evaluation
+- **Championship DNA System**: Pattern discovery from top-performing rosters with tier-based guidance
 - **Dynamic Replacement**: Per-simulation replacement level calculations using sampled values
 - **Live Draft Integration**: backup_draft.py ↔ monte_carlo_state.json ↔ AI recommendations
 
@@ -61,6 +67,11 @@ src/
     __init__.py        # Clean public API
   scraping.py          # FantasyPros data collection
   scoring.py           # Fantasy point calculations
+notebooks/              # Championship DNA system (NEW)
+  championship_dna_analyzer.py    # Core pattern analysis from top performers
+  championship_dna_notebook.ipynb # Interactive analysis notebook
+  championship_dna_hybrid.py      # Complete hybrid system implementation
+  run_championship_dna.py         # Simple runner for pattern discovery
 config/
   league-config.yaml   # League settings & team names
 data/
@@ -173,6 +184,84 @@ high = projection × 1.2
 - **Live Integration**: Auto-loads draft state from backup_draft.py
 - **Clean API**: Simple runner script with strategy comparison
 
+## Championship DNA System: A Philosophical Evolution
+
+### The Core Philosophy Shift
+
+**OLD THINKING**: "Follow Zero-RB strategy" → Rigid rules that break under draft chaos  
+**NEW THINKING**: "Winners draft 4 RBs (≥2 Tier-2+), 5 WRs (≥3 Tier-2+)" → Flexible blueprint based on actual winning patterns
+
+This isn't just a feature update—it's a fundamental rethinking of how to approach fantasy drafts. We've moved from **prescribing strategies** to **discovering winning patterns**.
+
+### Three Core Philosophies
+
+#### 1. From Rigid Strategies to "North Star" Blueprint
+- **What Changed**: No more blind adherence to "Zero-RB" or "Hero-RB" labels
+- **New Approach**: Data-driven optimal roster composition from top 10% of simulations
+- **Why It Works**: Based on proven "Championship DNA" from thousands of winning teams in YOUR league settings
+- **The Insight**: Provides flexible end-goal, not rigid rules—you adapt to draft flow while knowing your destination
+
+#### 2. From Rankings to Actionable Tier-Based Guidance  
+- **What Changed**: Stop obsessing over pick #47 vs #52
+- **New Approach**: Dynamic tier windows with probabilities ("62% chance for Tier-2 RB by Round 3")
+- **Why It Works**: Tiers are resilient to small ranking changes and provide soft, probabilistic guidance
+- **The Insight**: "Best player available" changes based on scarcity and your roster—the system knows this
+
+#### 3. From Brittle Plans to Dynamic Pivot Rules
+- **What Changed**: No more panic when your target gets sniped
+- **New Approach**: Explicit pivot rules that trigger on draft deviations
+- **Why It Works**: Prepares you for imperfection with clear, logical alternatives
+- **The Insight**: System doesn't say "you're off-track"—it says "here's your best recovery path"
+
+### The Hybrid System in Practice
+
+```bash
+# Discover YOUR league's winning patterns (not generic advice)
+PYTHONPATH=. uv run python notebooks/run_championship_dna.py --pick 5 --sims 1000
+
+# Get tier-based guidance with pivot rules
+PYTHONPATH=. uv run python notebooks/championship_dna_hybrid.py pre-draft --pick 5
+
+# Live adaptation during draft chaos
+PYTHONPATH=. uv run python notebooks/championship_dna_hybrid.py live --pick 5
+```
+
+### What You Get: Three Actionable Cards
+
+1. **🎯 North Star Blueprint**
+   ```
+   Your Championship Target:
+   RB: 4 players (≥2 Tier-2+)
+   WR: 5 players (≥3 Tier-2+)  
+   TE: 2 players (≥1 Tier-3+)
+   QB: 2 players
+   Success Rate: 43% of champions look like this
+   ```
+
+2. **📊 Tier Windows (Soft Targets)**
+   ```
+   Round 3 Probabilities:
+   RB Tier-2: 62% available → GOOD WINDOW
+   WR Tier-1: 8% available → CLOSING FAST
+   Recommendation: Prioritize WR if Tier-1 available
+   ```
+
+3. **⚠️ Pivot Alerts (Adaptive Rules)**
+   ```
+   POSITION RUN DETECTED: 5 RBs in last 6 picks
+   → Pivot to WR/TE for next 2 rounds
+   → Return to RB in Round 5 (82% Tier-3 availability)
+   ```
+
+### The Philosophy Summary
+
+**This system uses your simulation engine not to prescribe a single strategy, but to discover a universe of winning outcomes.** It translates these into:
+- An ideal "North Star" roster (where you're heading)
+- Early-round "soft targets" (probabilistic guidance, not rigid rules)  
+- Clear "pivot alerts" (keeping you on track when chaos hits)
+
+**Bottom Line**: This is about using data to inform an intelligent, adaptive process—not following blind recommendations. You maintain human judgment while being armed with powerful pattern recognition from thousands of simulated championships.
+
 ## Commands
 
 ### Draft Operations
@@ -182,15 +271,23 @@ python monte_carlo_runner.py compare                              # Traditional 
 python monte_carlo_runner.py compare --n-sims 1000 --parallel     # Fast parallel (1000 sims, ~88s)
 python monte_carlo_runner.py compare_fast                         # CRN adaptive (auto-stop at convergence)
 
+# Championship DNA analysis (NEW)
+PYTHONPATH=. uv run python notebooks/run_championship_dna.py --pick 5 --sims 1000  # Pattern discovery
+PYTHONPATH=. uv run python notebooks/championship_dna_hybrid.py pre-draft --pick 5  # Hybrid recommendations
+
 # Live draft workflow
 python backup_draft.py                    # Start draft tracker
   → ORDER    # Show snake draft order
   → STATUS   # Current draft state
   → HELP     # All commands
 
+python monte_carlo_runner.py degradation                 # BEST: Positional degradation analysis
 python monte_carlo_runner.py balanced                    # Quick recommendations (100 sims)
 python monte_carlo_runner.py balanced --n-sims 1000 --parallel  # Thorough analysis (1000 sims)
 python monte_carlo_runner.py zero_rb --parallel          # Test specific strategy with speed
+
+# Live Championship DNA recommendations
+PYTHONPATH=. uv run python notebooks/championship_dna_hybrid.py live --pick 5      # Live tier-based guidance
 ```
 
 ### Live Draft Integration
@@ -229,7 +326,7 @@ scoring:
   # PPR/Half-PPR/Standard configurable
 
 roster:
-  QB: 1, RB: 2, WR: 3, TE: 1, FLEX: 1, K: 1, DST: 1
+  QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 1, K: 1, DST: 1
 ```
 
 ## Conventions
@@ -246,9 +343,11 @@ roster:
 
 ## Do's
 - Run strategy comparison BEFORE draft (`PYTHONPATH=. uv run python monte_carlo_runner.py compare_fast`)
+- Use Championship DNA for pattern discovery (`PYTHONPATH=. uv run python notebooks/run_championship_dna.py --pick 5 --sims 1000`)
 - Use `--parallel` flag for 1000+ simulations (4x speedup)
 - Set draft position in backup_draft.py team selection menu
 - Use live integration during draft (backup_draft.py → Monte Carlo)
+- Try hybrid tier-based recommendations (`PYTHONPATH=. uv run python notebooks/championship_dna_hybrid.py pre-draft --pick 5`)
 - Use UV environment (`uv sync`)
 - Test system before draft day
 - Always prefix commands with `PYTHONPATH=.`
@@ -361,4 +460,5 @@ monte_carlo_state.json
 
 ---
 
-This system provides modular Monte Carlo simulation for optimal fantasy football draft strategy evaluation.
+This system provides modular Monte Carlo simulation for optimal fantasy football draft strategy evaluation and Championship DNA pattern discovery for identifying winning roster construction patterns.
+- test_starter_simple.py to be used for development simple probability model that is deterministic

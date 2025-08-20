@@ -9,7 +9,7 @@ from typing import Dict, Set, Optional, List
 class ProbabilityModel:
     """Calculate draft pick probabilities from ESPN and ADP data"""
     
-    def __init__(self, espn_weight=0.8, adp_weight=0.2, temperature=5.0):
+    def __init__(self, espn_weight=0.8, adp_weight=0.2, temperature=2.5):
         self.espn_weight = espn_weight
         self.adp_weight = adp_weight
         self.temperature = temperature
@@ -43,7 +43,10 @@ class ProbabilityModel:
         try:
             if os.path.exists(espn_file):
                 espn_df = pd.read_csv(espn_file)
-                espn_df['espn_rank'] = espn_df['overall_rank']
+                # CRITICAL FIX: Convert to numeric to prevent string sorting ('10' < '2')
+                espn_df['espn_rank'] = pd.to_numeric(espn_df['overall_rank'], errors='coerce')
+                # Sort by numeric rank to ensure proper order
+                espn_df = espn_df.sort_values('espn_rank', kind='mergesort')
                 return espn_df[['player_name', 'position', 'espn_rank', 'team']]
             else:
                 print(f"Warning: ESPN file not found at {espn_file}")
@@ -59,7 +62,8 @@ class ProbabilityModel:
         try:
             if os.path.exists(adp_file):
                 adp_df = pd.read_csv(adp_file)
-                adp_df['adp_rank'] = adp_df['RANK']
+                # CRITICAL FIX: Convert to numeric to prevent string sorting
+                adp_df['adp_rank'] = pd.to_numeric(adp_df['RANK'], errors='coerce')
                 adp_df['player_name'] = adp_df['PLAYER']
                 return adp_df[['player_name', 'adp_rank']]
             else:

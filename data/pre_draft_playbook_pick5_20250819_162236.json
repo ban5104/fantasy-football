@@ -1,0 +1,167 @@
+{
+  "meta": {
+    "pick_position": 5,
+    "generated_at": "2025-08-19 16:22:36",
+    "analysis_time_seconds": 60.19229507446289,
+    "ensemble_models": [
+      "ESPN-only",
+      "ADP-only",
+      "80/20 Blend"
+    ]
+  },
+  "picks": {
+    "round_1": {
+      "pick_number": 5,
+      "round": 1,
+      "candidates": {
+        "Balanced": [
+          {
+            "player": "Justin Jefferson",
+            "vona": 199.81595768595173,
+            "p_win": 1.0,
+            "p_survive": 0.03428079697495893,
+            "position": "WR",
+            "vor": 86.78000000000002
+          },
+          {
+            "player": "De'Von Achane",
+            "vona": 187.95285824643008,
+            "p_win": 1.0,
+            "p_survive": 0.8204218582781021,
+            "position": "RB",
+            "vor": 111.87
+          },
+          {
+            "player": "Jonathan Taylor",
+            "vona": 187.1154193470333,
+            "p_win": 1.0,
+            "p_survive": 0.8313433488161399,
+            "position": "RB",
+            "vor": 104.77000000000001
+          },
+          {
+            "player": "Josh Jacobs",
+            "vona": 184.31952503576377,
+            "p_win": 1.0,
+            "p_survive": 0.8648498343080706,
+            "position": "RB",
+            "vor": 114.99000000000001
+          },
+          {
+            "player": "Ashton Jeanty",
+            "vona": 178.51695034872404,
+            "p_win": 1.0,
+            "p_survive": 0.535464740568761,
+            "position": "RB",
+            "vor": 106.03999999999999
+          },
+          {
+            "player": "Bucky Irving",
+            "vona": 168.5587024792664,
+            "p_win": 1.0,
+            "p_survive": 0.9126724103660654,
+            "position": "RB",
+            "vor": 91.00999999999999
+          }
+        ]
+      },
+      "recommendation": "Justin Jefferson",
+      "confidence": "HIGH",
+      "vona_margins": {
+        "expected_range": [
+          5,
+          8
+        ],
+        "actual_margin": 11.863099439521648,
+        "within_expected": false
+      },
+      "pivot_rules": [
+        {
+          "condition": "If Justin Jefferson is taken",
+          "action": "Pivot to De'Von Achane",
+          "blueprint_status": "\u26a0\ufe0f Adjust"
+        }
+      ],
+      "ensemble_agreement": 1.0
+    },
+    "round_2": {
+      "pick_number": 24,
+      "round": 2,
+      "candidates": {
+        "Balanced": [
+          {
+            "player": "Josh Jacobs",
+            "vona": 224.21947140029135,
+            "p_win": 1.0,
+            "p_survive": 0.9544011223704507,
+            "position": "RB",
+            "vor": 114.99000000000001
+          },
+          {
+            "player": "De'Von Achane",
+            "vona": 221.13197581035,
+            "p_win": 1.0,
+            "p_survive": 0.9383591804445996,
+            "position": "RB",
+            "vor": 111.87
+          },
+          {
+            "player": "Ashton Jeanty",
+            "vona": 215.36271321760702,
+            "p_win": 1.0,
+            "p_survive": 0.8180999268416237,
+            "position": "RB",
+            "vor": 106.03999999999999
+          },
+          {
+            "player": "Jonathan Taylor",
+            "vona": 214.10594417939376,
+            "p_win": 1.0,
+            "p_survive": 0.9423562973637886,
+            "position": "RB",
+            "vor": 104.77000000000001
+          },
+          {
+            "player": "Bucky Irving",
+            "vona": 200.48929696221654,
+            "p_win": 1.0,
+            "p_survive": 0.9710555664679936,
+            "position": "RB",
+            "vor": 91.00999999999999
+          },
+          {
+            "player": "James Cook",
+            "vona": 194.37368069752503,
+            "p_win": 1.0,
+            "p_survive": 0.9973906014880416,
+            "position": "RB",
+            "vor": 84.82999999999998
+          }
+        ]
+      },
+      "recommendation": "Josh Jacobs",
+      "confidence": "HIGH",
+      "vona_margins": {
+        "expected_range": [
+          5,
+          8
+        ],
+        "actual_margin": 3.0874955899413408,
+        "within_expected": false
+      },
+      "pivot_rules": [
+        {
+          "condition": "If Josh Jacobs is taken",
+          "action": "Pivot to De'Von Achane",
+          "blueprint_status": "\u26a0\ufe0f Adjust"
+        }
+      ],
+      "ensemble_agreement": 1.0
+    }
+  },
+  "summary": {
+    "total_picks": 2,
+    "high_confidence_picks": 2,
+    "valid_vona_margins": 0
+  }
+}

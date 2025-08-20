@@ -5,7 +5,7 @@ description = "Fantasy football draft analysis and visualization system"
 requires-python = ">=3.8"
 dependencies = [
     "pandas>=2.0.0",
-    "numpy>=1.20.0", 
+    "numpy>=1.20.0",
     "pyyaml>=6.0",
     "matplotlib>=3.0.0",
     "seaborn>=0.11.0",
@@ -18,6 +18,8 @@ dependencies = [
     "scikit-learn>=1.0.0",
     "scipy>=1.7.0",
     "ipywidgets>=7.6.0",
+    "pyarrow>=17.0.0",
+    "pytest>=8.3.5",
 ]
 
 [build-system]

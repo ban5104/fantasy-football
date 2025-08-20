@@ -3,7 +3,7 @@
 from .probability import ProbabilityModel
 from .opponent import OpponentModel  
 from .simulator import MonteCarloSimulator
-from .strategies import get_strategy, list_strategies
+from .strategies import get_strategy, list_strategies, list_vor_policies
 from .replacement import calculate_replacement_levels
 
 # Export public API including wrapper functions
@@ -47,9 +47,10 @@ class DraftSimulator:
             return None
             
     def run_strategy_comparison(self, my_team_idx, n_sims=100, base_seed=42):
-        """Compare all strategies for a draft position using consistent random seeds"""
+        """Compare all strategies (legacy + VOR) for a draft position using consistent random seeds"""
         results = {}
         
+        # Test legacy strategies
         for strategy_name in list_strategies():
             print(f"Testing {strategy_name} strategy...")
             result = self.simulator.run_simulations_with_fixed_seeds(
@@ -58,7 +59,21 @@ class DraftSimulator:
             results[strategy_name] = {
                 'mean_value': result['mean_value'],
                 'std_value': result['std_value'],
-                'patterns': result.get('patterns', {})
+                'patterns': result.get('patterns', {}),
+                'avg_backup_counts': result.get('avg_backup_counts', {'QB': 0, 'RB': 0, 'WR': 0, 'TE': 0, 'total': 0})
+            }
+        
+        # Test VOR policies
+        for policy_name in list_vor_policies():
+            print(f"Testing {policy_name} VOR policy...")
+            result = self.simulator.run_simulations_with_fixed_seeds(
+                my_team_idx, policy_name, n_sims, base_seed
+            )
+            results[policy_name] = {
+                'mean_value': result['mean_value'],
+                'std_value': result['std_value'],
+                'patterns': result.get('patterns', {}),
+                'avg_backup_counts': result.get('avg_backup_counts', {'QB': 0, 'RB': 0, 'WR': 0, 'TE': 0, 'total': 0})
             }
             
         sorted_results = sorted(results.items(), key=lambda x: x[1]['mean_value'], reverse=True)
